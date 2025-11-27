@@ -11263,7 +11263,22 @@
               enabled: true,
               titleFont: { size: isMobile ? 11 : 12 },
               bodyFont: { size: isMobile ? 10 : 12 },
-              padding: isMobile ? 6 : 10
+              padding: isMobile ? 6 : 10,
+
+              // ← ÚJ: Rendezés érték szerint csökkenő sorrendben
+              itemSort: function (a, b) {
+                return b.raw - a.raw;  // Csökkenő: nagyobb érték felül
+              },
+
+              // ← Opcionális: Formázás az értékekre (pl. ezerelválasztó)
+              callbacks: {
+                label: function (context) {
+                  const formattedValue = Number(context.raw).toLocaleString('hu-HU', {
+                    maximumFractionDigits: 2
+                  });
+                  return `${context.dataset.label}: ${formattedValue}`;
+                }
+              }
             }
           },
           scales: {
@@ -11334,7 +11349,22 @@
               enabled: true,
               titleFont: { size: isMobile ? 11 : 12 },
               bodyFont: { size: isMobile ? 10 : 12 },
-              padding: isMobile ? 6 : 10
+              padding: isMobile ? 6 : 10,
+
+              // ← ÚJ: Rendezés érték szerint csökkenő sorrendben
+              itemSort: function (a, b) {
+                return b.raw - a.raw;  // Csökkenő: nagyobb érték felül
+              },
+
+              // ← Opcionális: Formázás az értékekre (pl. ezerelválasztó)
+              callbacks: {
+                label: function (context) {
+                  const formattedValue = Number(context.raw).toLocaleString('hu-HU', {
+                    maximumFractionDigits: 2
+                  });
+                  return `${context.dataset.label}: ${formattedValue}`;
+                }
+              }
             }
           },
           scales: {
