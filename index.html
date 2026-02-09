@@ -63,7 +63,16 @@
     }
 
     select[multiple] {
-      height: 150px
+      height: 150px;
+      -webkit-appearance: menulist;
+      -moz-appearance: menulist;
+      appearance: menulist;
+    }
+    
+    /* Fix a webkit böngészőkben a kiválasztott option-ök megjelenítéséhez */
+    select[multiple]:focus option:checked {
+      background: #003399 linear-gradient(0deg, #003399 0%, #003399 100%) !important;
+      color: white !important;
     }
 
     .tree {
@@ -201,6 +210,33 @@
     .search {
       margin-bottom: 8px
     }
+
+    .aggregate-option {
+      background: #e3f2fd;
+      font-weight: bold;
+    }
+
+    .country-option {
+      background: white;
+    }
+    
+    /* Kiválasztott option-ök stílusa */
+    select[multiple] option:checked {
+      background: #003399 !important;
+      color: white !important;
+    }
+    
+    /* Aggregátum kiválasztva */
+    select[multiple] option.aggregate-option:checked {
+      background: #1976d2 !important;
+      color: white !important;
+      font-weight: bold;
+    }
+
+    optgroup {
+      font-weight: bold;
+      font-style: normal;
+    }
   </style>
 </head>
 
@@ -278,12 +314,53 @@
       "RS": "Szerbia", "AL": "Albánia", "ME": "Montenegró", "BA": "Bosznia-Hercegovina", "XK": "Koszovó"
     };
 
+    // Ország aggregátumok definíciója (csak kiválasztási segédeszköz)
+    const countryAggregates = {
+      "EU": {
+        name: "🇪🇺 EU (összes tag)",
+        countries: ["BE", "BG", "CZ", "DK", "DE", "EE", "IE", "EL", "ES", "FR", "HR", "IT", "CY", "LV", "LT", "LU", "HU", "MT", "NL", "AT", "PL", "PT", "RO", "SI", "SK", "FI", "SE"]
+      },
+      "EU_EURO": {
+        name: "💶 Eurozóna",
+        countries: ["BE", "DE", "EE", "IE", "EL", "ES", "FR", "HR", "IT", "CY", "LV", "LT", "LU", "MT", "NL", "AT", "PT", "SI", "SK", "FI"]
+      },
+      "V4": {
+        name: "🤝 V4 (Visegrádi négyek)",
+        countries: ["HU", "CZ", "SK", "PL"]
+      },
+      "CEE": {
+        name: "🌍 Közép-Kelet-Európa",
+        countries: ["HU", "CZ", "SK", "PL", "RO", "BG", "SI", "HR", "EE", "LV", "LT", "AL", "RS", "ME", "BA", "XK", "MK"]
+      },
+      "CEE_EU": {
+        name: "🇪🇺 Közép-Kelet-Európa (EU tagok)",
+        countries: ["HU", "CZ", "SK", "PL", "RO", "BG", "SI", "HR", "EE", "LV", "LT"]
+      },
+      "EU_NON_EURO": {
+        name: "🇪🇺 EU nem-eurozóna tagok",
+        countries: ["BG", "CZ", "DK", "HU", "PL", "RO", "SE"]
+      },
+      "CEE_EU_EURO": {
+        name: "💶 Közép-Kelet-Európa (EU + eurozóna)",
+        countries: ["EE", "LV", "LT", "SK", "SI", "HR"]
+      },
+      "CEE_EU_NON_EURO": {
+        name: "🇪🇺 Közép-Kelet-Európa (EU, nem eurozóna)",
+        countries: ["HU", "CZ", "PL", "RO", "BG"]
+      }
+    };
+
+
     let selectedDataset = null; // {id, name}
     let chartInstance = null;
     let chartInstanceRaw = null; // Második grafikon a nyers adatokhoz
     let allDataflows = []; // tömb: {id, name}
     let datasetDimensions = []; // dataset dimenzióinak listája
     let dimensionCodelists = {}; // dimenzió értékek tárolása
+    
+    // Az utolsó sikeres számítás adatainak tárolása az újraszámoláshoz
+    let lastCalculationData = null;
+    let lastCalculationCountries = null;
 
     // ============================================================================
     // BEÉPÍTETT DATASET LISTA - IDE ILLESZD BE A TELJES LISTÁT
@@ -11009,13 +11086,79 @@
     function renderCountrySelect() {
       const sel = document.getElementById('countrySelect');
       sel.innerHTML = '';
+      
+      // Először az aggregátumokat tesszük be
+      const aggregateGroup = document.createElement('optgroup');
+      aggregateGroup.label = '📊 Ország csoportok';
+      Object.keys(countryAggregates).forEach(aggCode => {
+        const opt = document.createElement('option');
+        opt.value = aggCode;
+        opt.textContent = countryAggregates[aggCode].name;
+        opt.className = 'aggregate-option';
+        aggregateGroup.appendChild(opt);
+      });
+      sel.appendChild(aggregateGroup);
+      
+      // Majd az egyedi országokat
+      const countryGroup = document.createElement('optgroup');
+      countryGroup.label = '🌍 Országok';
       Object.keys(countryMap).sort((a, b) => countryMap[a].localeCompare(countryMap[b])).forEach(code => {
         const opt = document.createElement('option');
         opt.value = code;
         opt.textContent = `${code} — ${countryMap[code]}`;
-        sel.appendChild(opt);
+        opt.className = 'country-option';
+        countryGroup.appendChild(opt);
       });
+      sel.appendChild(countryGroup);
+      
+      // Event listener a kiválasztások kezelésére
+      sel.addEventListener('change', handleCountrySelection);
       sel.addEventListener('change', checkFormComplete);
+    }
+
+    function handleCountrySelection(event) {
+      const sel = document.getElementById('countrySelect');
+      const selectedValues = Array.from(sel.selectedOptions).map(opt => opt.value);
+      
+      // Ne fusson újra, ha épp mi állítjuk be programmatikusan
+      if (sel.dataset.programmaticChange === 'true') {
+        return;
+      }
+      
+      sel.dataset.programmaticChange = 'true';
+      
+      // 1. Ha aggregátumot választottak, válasszuk ki a benne lévő országokat is
+      selectedValues.forEach(value => {
+        if (countryAggregates[value]) {
+          countryAggregates[value].countries.forEach(countryCode => {
+            const option = Array.from(sel.options).find(opt => opt.value === countryCode);
+            if (option) {
+              option.selected = true;
+            }
+          });
+        }
+      });
+      
+      // 2. Ellenőrizzük, hogy vannak-e teljes aggregátumok kiválasztva az országok alapján
+      const selectedCountries = Array.from(sel.selectedOptions)
+        .map(opt => opt.value)
+        .filter(val => countryMap[val]); // Csak a tényleges országok
+      
+      Object.keys(countryAggregates).forEach(aggCode => {
+        const aggCountries = countryAggregates[aggCode].countries;
+        const allSelected = aggCountries.every(c => selectedCountries.includes(c));
+        const option = Array.from(sel.options).find(opt => opt.value === aggCode);
+        
+        if (option) {
+          if (allSelected && aggCountries.length > 0) {
+            option.selected = true;
+          } else {
+            option.selected = false;
+          }
+        }
+      });
+      
+      sel.dataset.programmaticChange = 'false';
     }
 
     function checkFormComplete() {
@@ -11142,6 +11285,11 @@
       const ratio = document.getElementById('methodRatio');
       const diff = document.getElementById('methodDifference');
       methodDiv.style.display = 'block';
+      
+      // Távolítsuk el a régi listenereket
+      ratio.removeEventListener('change', recalculateWithNewMethod);
+      diff.removeEventListener('change', recalculateWithNewMethod);
+      
       if (hasNegative) {
         ratio.disabled = true;
         diff.disabled = false;
@@ -11150,6 +11298,35 @@
         ratio.disabled = false;
         diff.disabled = false;
         ratio.checked = true;
+        
+        // Csak akkor adjunk hozzá event listenert, ha mindkét módszer választható
+        ratio.addEventListener('change', recalculateWithNewMethod);
+        diff.addEventListener('change', recalculateWithNewMethod);
+      }
+    }
+    
+    function recalculateWithNewMethod() {
+      // Ha van eltárolt adat, újraszámoljuk
+      if (lastCalculationData && lastCalculationCountries) {
+        // Mentsük el a jelenlegi kiválasztásokat
+        const sel = document.getElementById('countrySelect');
+        const selectedValues = Array.from(sel.selectedOptions).map(opt => opt.value);
+        
+        console.log('Újraszámolás előtt kiválasztott értékek:', selectedValues);
+        
+        // Újraszámolás
+        processAndDisplay(lastCalculationData, lastCalculationCountries);
+        
+        // Állítsuk vissza a kiválasztásokat
+        setTimeout(() => {
+          selectedValues.forEach(value => {
+            const option = Array.from(sel.options).find(opt => opt.value === value);
+            if (option) {
+              option.selected = true;
+            }
+          });
+          console.log('Kiválasztások visszaállítva');
+        }, 0);
       }
     }
 
@@ -11158,6 +11335,10 @@
       const dates = Object.keys(data[selectedCountries[0]]).sort();
       const startYear = dates[0];
 
+      // Ellenőrizzük, melyik számítási módszert választotta a felhasználó
+      const useRatio = document.getElementById('methodRatio').checked;
+      const useDifference = document.getElementById('methodDifference').checked;
+
       // Átlagok minden időpontra
       const averages = {};
       dates.forEach(date => {
@@ -11165,12 +11346,19 @@
         averages[date] = sum / selectedCountries.length;
       });
 
-      // Kezdő relatív pozíciók
       const startAvg = averages[startYear];
-      const startRelatives = {};
+      
+      // Kezdő értékek (relatív vagy abszolút)
+      const startValues = {};
       selectedCountries.forEach(c => {
         const val = data[c][startYear] || 0;
-        startRelatives[c] = startAvg === 0 ? 0 : val / startAvg;
+        if (useRatio) {
+          // Arány-alapú: relatív pozíció az átlaghoz képest
+          startValues[c] = startAvg === 0 ? 0 : val / startAvg;
+        } else {
+          // Különbség-alapú: abszolút különbség az átlagtól
+          startValues[c] = val - startAvg;
+        }
       });
 
       const datasets = [];
@@ -11184,8 +11372,18 @@
         dates.forEach(date => {
           const val = data[country][date] || 0;
           const avg = averages[date] || 0;
-          const currentRelative = avg === 0 ? 0 : val / avg;
-          const index = currentRelative - startRelatives[country]; // ← EZ A KÉRT MUTATÓ
+          
+          let index;
+          if (useRatio) {
+            // Arány-alapú számítás
+            const currentRelative = avg === 0 ? 0 : val / avg;
+            index = currentRelative - startValues[country];
+          } else {
+            // Különbség-alapú számítás
+            const currentDifference = val - avg;
+            index = currentDifference - startValues[country];
+          }
+          
           series.push(index);
           seriesRaw.push(val);
         });
@@ -11407,7 +11605,15 @@
       btn.disabled = true;
 
       try {
-        const countries = Array.from(document.getElementById('countrySelect').selectedOptions).map(o => o.value);
+        const allSelected = Array.from(document.getElementById('countrySelect').selectedOptions).map(o => o.value);
+        
+        // Szűrjük ki az aggregátumokat, csak a tényleges országkódokat hagyjuk meg
+        const countries = allSelected.filter(code => countryMap[code]);
+        
+        if (countries.length === 0) {
+          throw new Error('Válassz ki legalább egy országot!');
+        }
+        
         const startDate = document.getElementById('startDate').value.trim();
         const endDate = document.getElementById('endDate').value.trim();
 
@@ -11447,6 +11653,11 @@
         }
 
         const hasNegative = checkForNegativeValues(data);
+        
+        // Tároljuk el az adatokat a módszer-váltáshoz
+        lastCalculationData = data;
+        lastCalculationCountries = validCountries;
+        
         setupCalculationMethod(hasNegative);
         processAndDisplay(data, validCountries);
 
