@@ -7,374 +7,184 @@
   <title>Eurostat — minden dataset + dinamikus inputok</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 18px }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.08) }
+    h1 { color: #003399; margin-bottom: 18px }
+    .flex { display: flex; gap: 16px }
+    .col { flex: 1 }
+    .form-group { margin-bottom: 14px }
+    label { display: block; font-weight: 700; margin-bottom: 6px }
+    select, input, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px }
+    select[multiple] { height: 150px }
+    .tree { border: 1px solid #ddd; padding: 10px; max-height: 340px; overflow: auto; background: #fafafa }
+    .list-item { padding: 6px; cursor: pointer; border-radius: 4px }
+    .list-item:hover { background: #e8f4f8 }
+    .selected { background: #003399; color: #fff }
+    .small { font-size: 12px; color: #666; margin-top: 6px }
+    .calculation-method { margin: 16px 0; padding: 12px; background: #f0f0f0; border-radius: 6px }
+    button { background: #003399; color: #fff; border: none; cursor: pointer }
+    button:disabled { background: #ccc; cursor: not-allowed }
+    #chartContainer { margin-top: 20px; display: none; position: relative; width: 100%; overflow-x: auto }
+    #chartContainerRaw { margin-top: 30px; display: none; position: relative; width: 100%; overflow-x: auto }
+    #chartWrapper, #chartWrapperRaw { min-width: 300px; width: 100%; position: relative }
+    .chart-title { font-size: 18px; font-weight: bold; color: #003399; margin-bottom: 10px; padding-top: 10px; border-top: 2px solid #e0e0e0 }
+    .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 6px; margin-top: 12px; display: none }
+    .info { background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 13px }
+    optgroup { font-weight: bold; font-style: normal }
+    @media (max-width: 768px) { .container { padding: 12px } h1 { font-size: 20px } .flex { flex-direction: column } }
 
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      padding: 18px
-    }
+    /* Adatelérhetőségi panel */
+    #dataAvailabilityPanel { display: none; margin-top: 16px; margin-bottom: 8px; border: 1px solid #b0bec5; border-radius: 8px; overflow: hidden }
+    .panel-header { background: #37474f; color: white; padding: 10px 14px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none }
+    .panel-header:hover { background: #455a64 }
+    .panel-toggle { margin-left: auto; font-size: 18px; transition: transform 0.25s }
+    .panel-toggle.open { transform: rotate(180deg) }
+    .panel-body { padding: 12px 14px; background: #fafafa }
+    .range-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-weight: bold; font-size: 13px }
+    .range-warn { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-weight: bold; font-size: 13px }
+    .range-err { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-weight: bold; font-size: 13px }
+    #dataAvailabilityPanel table { width: 100%; border-collapse: collapse; font-size: 13px }
+    #dataAvailabilityPanel th { background: #eceff1; padding: 6px 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #cfd8dc }
+    #dataAvailabilityPanel td { padding: 5px 10px; border-bottom: 1px solid #eceff1 }
+    #dataAvailabilityPanel tr:last-child td { border-bottom: none }
+    #dataAvailabilityPanel tr:hover td { background: #f5f5f5 }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold }
+    .badge-ok { background: #c8e6c9; color: #2e7d32 }
+    .badge-warn { background: #fff9c4; color: #f57f17 }
+    .badge-err { background: #ffccbc; color: #bf360c }
+    .row-excluded { background: #fff8f8 !important }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      padding: 24px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, .08)
-    }
-
-    h1 {
-      color: #003399;
-      margin-bottom: 18px
-    }
-
-    .flex {
-      display: flex;
-      gap: 16px
-    }
-
-    .col {
-      flex: 1
-    }
-
-    .form-group {
-      margin-bottom: 14px
-    }
-
-    label {
-      display: block;
-      font-weight: 700;
-      margin-bottom: 6px
-    }
-
-    select,
-    input,
-    button {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px
-    }
-
-    select[multiple] {
-      height: 150px;
-      -webkit-appearance: menulist;
-      -moz-appearance: menulist;
-      appearance: menulist;
-    }
-    
-    /* Fix a webkit böngészőkben a kiválasztott option-ök megjelenítéséhez */
-    select[multiple]:focus option:checked {
-      background: #003399 linear-gradient(0deg, #003399 0%, #003399 100%) !important;
-      color: white !important;
-    }
-
-    .tree {
-      border: 1px solid #ddd;
-      padding: 10px;
-      max-height: 340px;
-      overflow: auto;
-      background: #fafafa
-    }
-
-    .list-item {
-      padding: 6px;
-      cursor: pointer;
-      border-radius: 4px
-    }
-
-    .list-item:hover {
-      background: #e8f4f8
-    }
-
-    .selected {
-      background: #003399;
-      color: #fff
-    }
-
-    .small {
-      font-size: 12px;
-      color: #666;
-      margin-top: 6px
-    }
-
-    .calculation-method {
-      margin: 16px 0;
-      padding: 12px;
-      background: #f0f0f0;
-      border-radius: 6px
-    }
-
-    button {
-      background: #003399;
-      color: #fff;
-      border: none;
-      cursor: pointer
-    }
-
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed
-    }
-
-    #chartContainer {
-      margin-top: 20px;
-      display: none;
-      position: relative;
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    #chartContainerRaw {
-      margin-top: 30px;
-      display: none;
-      position: relative;
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    #chartWrapper {
-      min-width: 300px;
-      width: 100%;
-      position: relative;
-    }
-
-    #chartWrapperRaw {
-      min-width: 300px;
-      width: 100%;
-      position: relative;
-    }
-
-    .chart-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #003399;
-      margin-bottom: 10px;
-      padding-top: 10px;
-      border-top: 2px solid #e0e0e0;
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        padding: 12px;
-      }
-
-      h1 {
-        font-size: 20px;
-      }
-
-      .flex {
-        flex-direction: column;
-      }
-
-      select,
-      input,
-      button {
-        font-size: 16px;
-      }
-
-      #chartWrapperRaw {
-        min-height: 300px;
-      }
-    }
-
-    .error {
-      background: #ffebee;
-      color: #c62828;
-      padding: 12px;
-      border-radius: 6px;
-      margin-top: 12px;
-      display: none
-    }
-
-    .info {
-      background: #e3f2fd;
-      color: #1565c0;
-      padding: 10px;
-      border-radius: 6px;
-      margin-top: 10px;
-      font-size: 13px
-    }
-
-    .loader {
-      display: inline-block;
-      margin-left: 8px
-    }
-
-    .search {
-      margin-bottom: 8px
-    }
-
-    .aggregate-option {
-      background: #e3f2fd;
-      font-weight: bold;
-    }
-
-    .country-option {
-      background: white;
-    }
-    
-    /* Kiválasztott option-ök stílusa */
-    select[multiple] option:checked {
-      background: #003399 !important;
-      color: white !important;
-    }
-    
-    /* Aggregátum kiválasztva */
-    select[multiple] option.aggregate-option:checked {
-      background: #1976d2 !important;
-      color: white !important;
-      font-weight: bold;
-    }
-
-    optgroup {
-      font-weight: bold;
-      font-style: normal;
-    }
+    /* Megosztás gomb és panel */
+    #shareSection { display: none; margin-top: 24px; border-top: 2px solid #e0e0e0; padding-top: 16px }
+    #shareBtn { background: #1976d2; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; padding: 12px }
+    #shareBtn:hover { background: #1565c0 }
+    #sharePanel { margin-top: 12px; display: none }
+    #sharePanel .share-box { display: flex; gap: 8px; align-items: center }
+    #sharePanel input[type=text] { font-family: monospace; font-size: 12px; color: #333; background: #f5f5f5; cursor: text }
+    #copyBtn { width: auto; min-width: 90px; background: #43a047; font-size: 13px; padding: 10px 14px; white-space: nowrap }
+    #copyBtn:hover { background: #388e3c }
+    #copyBtn.copied { background: #1b5e20 }
+    #shareNote { font-size: 12px; color: #666; margin-top: 6px }
   </style>
 </head>
-
 <body>
-  <div class="container">
-    <h1>📊 Eurostat — minden dataset (dinamikus inputok)</h1>
+<div class="container">
+  <h1>📊 Eurostat — minden dataset (dinamikus inputok)</h1>
 
-    <div class="form-group">
-      <label>Mutató kiválasztása (dataset) — keresés az összes Eurostat dataset között:</label>
-      <input type="search" id="datasetSearch" placeholder="Keresés: pl. nama_10_gdp vagy GDP..." />
-      <div class="small">A lista a Eurostat SDMX dataflow-kat használja (az összes dataset dinamikusan betöltve).</div>
-      <div class="tree" id="datasetList">
-        <div class="small">Betöltés folyamatban… <span class="loader" id="tocLoader">⏳</span></div>
+  <div class="form-group">
+    <label>Mutató kiválasztása (dataset):</label>
+    <input type="search" id="datasetSearch" placeholder="Keresés: pl. nama_10_gdp vagy GDP..." />
+    <div class="small">A lista a Eurostat SDMX dataflow-kat használja.</div>
+    <div class="tree" id="datasetList">
+      <div class="small">Betöltés folyamatban… <span id="tocLoader">⏳</span></div>
+    </div>
+  </div>
+
+  <div id="dynamicInputs"></div>
+
+  <div class="form-group">
+    <label>Országok kiválasztása (Ctrl/Cmd + klikk):</label>
+    <select multiple id="countrySelect"></select>
+  </div>
+
+  <div class="flex">
+    <div class="col">
+      <div class="form-group">
+        <label>Kezdő dátum:</label>
+        <input type="text" id="startDate" placeholder="ÉÉÉÉ" />
       </div>
     </div>
-
-    <div id="dynamicInputs">
-      <!-- Ide töltődnek be dinamikusan a dataset dimenzió inputok -->
-    </div>
-
-    <div class="form-group">
-      <label>Országok kiválasztása (többet is választhatsz Ctrl/Cmd + klikk):</label>
-      <select multiple id="countrySelect"></select>
-    </div>
-
-    <div class="flex date-inputs">
-      <div class="col">
-        <div class="form-group">
-          <label>Kezdő dátum:</label>
-          <input type="text" id="startDate" placeholder="ÉÉÉÉ (pl. 2010)" />
-        </div>
-      </div>
-      <div class="col">
-        <div class="form-group">
-          <label>Záró dátum:</label>
-          <input type="text" id="endDate" placeholder="ÉÉÉÉ (pl. 2023)" />
-        </div>
-      </div>
-    </div>
-
-    <div class="calculation-method" id="calculationMethod" style="display:none">
-      <strong>Számítási módszer</strong><br /><br />
-      <input type="radio" id="methodRatio" name="method" value="ratio" /><label for="methodRatio">
-        Arány</label><br /><br />
-      <input type="radio" id="methodDifference" name="method" value="difference" /><label for="methodDifference">
-        Különbség</label>
-    </div>
-
-    <button id="calculateBtn" disabled>Számítás és megjelenítés</button>
-    <div class="error" id="errorMsg"></div>
-
-    <div id="chartContainer">
-      <div class="chart-title">Konvergencia elemzés (változás a kiindulási ponthoz képest)</div>
-      <div id="chartWrapper">
-        <canvas id="chart"></canvas>
-      </div>
-    </div>
-
-    <div id="chartContainerRaw">
-      <div class="chart-title">Nyers adatok</div>
-      <div id="chartWrapperRaw">
-        <canvas id="chartRaw"></canvas>
+    <div class="col">
+      <div class="form-group">
+        <label>Záró dátum:</label>
+        <input type="text" id="endDate" placeholder="ÉÉÉÉ" />
       </div>
     </div>
   </div>
 
-  <script>
-    /* ---------- CONFIG / GLOBALS ---------- */
-    const countryMap = {
-      "BE": "Belgium", "BG": "Bulgária", "CZ": "Csehország", "DK": "Dánia", "DE": "Németország", "EE": "Észtország", "IE": "Írország",
-      "EL": "Görögország", "ES": "Spanyolország", "FR": "Franciaország", "HR": "Horvátország", "IT": "Olaszország", "CY": "Ciprus",
-      "LV": "Lettország", "LT": "Litvánia", "LU": "Luxemburg", "HU": "Magyarország", "MT": "Málta", "NL": "Hollandia", "AT": "Ausztria",
-      "PL": "Lengyelország", "PT": "Portugália", "RO": "Románia", "SI": "Szlovénia", "SK": "Szlovákia", "FI": "Finnország", "SE": "Svédország",
-      "NO": "Norvégia", "CH": "Svájc", "UK": "Egyesült Királyság", "IS": "Izland", "LI": "Liechtenstein", "TR": "Törökország", "MK": "Észak-Macedónia",
-      "RS": "Szerbia", "AL": "Albánia", "ME": "Montenegró", "BA": "Bosznia-Hercegovina", "XK": "Koszovó"
-    };
+  <div class="calculation-method" id="calculationMethod" style="display:none">
+    <strong>Számítási módszer</strong><br /><br />
+    <input type="radio" id="methodRatio" name="method" value="ratio" /><label for="methodRatio"> Arány</label><br /><br />
+    <input type="radio" id="methodDifference" name="method" value="difference" /><label for="methodDifference"> Különbség</label>
+  </div>
 
-    // Ország aggregátumok definíciója (csak kiválasztási segédeszköz)
-    const countryAggregates = {
-      "EU": {
-        name: "🇪🇺 EU (összes tag)",
-        countries: ["BE", "BG", "CZ", "DK", "DE", "EE", "IE", "EL", "ES", "FR", "HR", "IT", "CY", "LV", "LT", "LU", "HU", "MT", "NL", "AT", "PL", "PT", "RO", "SI", "SK", "FI", "SE"]
-      },
-      "EU_EURO": {
-        name: "💶 Eurozóna",
-        countries: ["BE", "DE", "EE", "IE", "EL", "ES", "FR", "HR", "IT", "CY", "LV", "LT", "LU", "MT", "NL", "AT", "PT", "SI", "SK", "FI"]
-      },
-      "V4": {
-        name: "🤝 V4 (Visegrádi négyek)",
-        countries: ["HU", "CZ", "SK", "PL"]
-      },
-      "CEE": {
-        name: "🌍 Közép-Kelet-Európa",
-        countries: ["HU", "CZ", "SK", "PL", "RO", "BG", "SI", "HR", "EE", "LV", "LT", "AL", "RS", "ME", "BA", "XK", "MK"]
-      },
-      "CEE_EU": {
-        name: "🇪🇺 Közép-Kelet-Európa (EU tagok)",
-        countries: ["HU", "CZ", "SK", "PL", "RO", "BG", "SI", "HR", "EE", "LV", "LT"]
-      },
-      "EU_NON_EURO": {
-        name: "🇪🇺 EU nem-eurozóna tagok",
-        countries: ["BG", "CZ", "DK", "HU", "PL", "RO", "SE"]
-      },
-      "CEE_EU_EURO": {
-        name: "💶 Közép-Kelet-Európa (EU + eurozóna)",
-        countries: ["EE", "LV", "LT", "SK", "SI", "HR"]
-      },
-      "CEE_EU_NON_EURO": {
-        name: "🇪🇺 Közép-Kelet-Európa (EU, nem eurozóna)",
-        countries: ["HU", "CZ", "PL", "RO", "BG"]
-      }
-    };
+  <button id="calculateBtn" disabled>Számítás és megjelenítés</button>
+  <div class="error" id="errorMsg"></div>
 
+  <!-- Adatelérhetőségi panel -->
+  <div id="dataAvailabilityPanel">
+    <div class="panel-header" id="panelToggleBtn">
+      <span>📅 Adatelérhetőség országonként</span>
+      <span class="panel-toggle" id="panelToggleIcon">▼</span>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div id="commonRangeMsg"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Ország</th>
+            <th>Első adat</th>
+            <th>Utolsó adat</th>
+            <th>Adatpontok</th>
+            <th>Státusz</th>
+          </tr>
+        </thead>
+        <tbody id="availabilityTableBody"></tbody>
+      </table>
+    </div>
+  </div>
 
-    let selectedDataset = null; // {id, name}
-    let chartInstance = null;
-    let chartInstanceRaw = null; // Második grafikon a nyers adatokhoz
-    let allDataflows = []; // tömb: {id, name}
-    let datasetDimensions = []; // dataset dimenzióinak listája
-    let dimensionCodelists = {}; // dimenzió értékek tárolása
-    
-    // Az utolsó sikeres számítás adatainak tárolása az újraszámoláshoz
-    let lastCalculationData = null;
-    let lastCalculationCountries = null;
+  <div id="chartContainer">
+    <div class="chart-title">Konvergencia elemzés (változás a kiindulási ponthoz képest)</div>
+    <div id="chartWrapper"><canvas id="chart"></canvas></div>
+  </div>
+  <div id="chartContainerRaw">
+    <div class="chart-title">Nyers adatok</div>
+    <div id="chartWrapperRaw"><canvas id="chartRaw"></canvas></div>
+  </div>
 
-    // ============================================================================
-    // BEÉPÍTETT DATASET LISTA - IDE ILLESZD BE A TELJES LISTÁT
-    // A formátum: allDataflows = [{id: "dataset_code", name: "Dataset Name"}, ...]
-    // ============================================================================
-    // Például:
-    // allDataflows = [
-    //   {id: "nama_10_gdp", name: "GDP and main components (output, expenditure and income)"},
-    //   {id: "demo_pjan", name: "Population on 1 January by age and sex"},
-    //   ... stb
-    // ];
-    // ============================================================================
+  <!-- Megosztás szekció -->
+  <div id="shareSection">
+    <button id="shareBtn">🔗 Megosztási link generálása</button>
+    <div id="sharePanel">
+      <div class="share-box">
+        <input type="text" id="shareUrl" readonly />
+        <button id="copyBtn">📋 Másolás</button>
+      </div>
+      <div id="shareNote">Az URL tartalmazza a kiválasztott dataset-et, dimenziókat, országokat és dátumokat. A link megnyitásakor az oldal automatikusan betölti és lefuttatja az összehasonlítást.</div>
+    </div>
+  </div>
+</div>
 
-    allDataflows = [
+<script>
+const countryMap = {
+  "BE":"Belgium","BG":"Bulgária","CZ":"Csehország","DK":"Dánia","DE":"Németország","EE":"Észtország","IE":"Írország",
+  "EL":"Görögország","ES":"Spanyolország","FR":"Franciaország","HR":"Horvátország","IT":"Olaszország","CY":"Ciprus",
+  "LV":"Lettország","LT":"Litvánia","LU":"Luxemburg","HU":"Magyarország","MT":"Málta","NL":"Hollandia","AT":"Ausztria",
+  "PL":"Lengyelország","PT":"Portugália","RO":"Románia","SI":"Szlovénia","SK":"Szlovákia","FI":"Finnország","SE":"Svédország",
+  "NO":"Norvégia","CH":"Svájc","UK":"Egyesült Királyság","IS":"Izland","LI":"Liechtenstein","TR":"Törökország","MK":"Észak-Macedónia",
+  "RS":"Szerbia","AL":"Albánia","ME":"Montenegró","BA":"Bosznia-Hercegovina","XK":"Koszovó"
+};
+
+const countryAggregates = {
+  "EU":{ name:"🇪🇺 EU (összes tag)", countries:["BE","BG","CZ","DK","DE","EE","IE","EL","ES","FR","HR","IT","CY","LV","LT","LU","HU","MT","NL","AT","PL","PT","RO","SI","SK","FI","SE"] },
+  "EU_EURO":{ name:"💶 Eurozóna", countries:["BE","DE","EE","IE","EL","ES","FR","HR","IT","CY","LV","LT","LU","MT","NL","AT","PT","SI","SK","FI"] },
+  "V4":{ name:"🤝 V4 (Visegrádi négyek)", countries:["HU","CZ","SK","PL"] },
+  "CEE":{ name:"🌍 Közép-Kelet-Európa", countries:["HU","CZ","SK","PL","RO","BG","SI","HR","EE","LV","LT","AL","RS","ME","BA","XK","MK"] },
+  "CEE_EU":{ name:"🇪🇺 Közép-Kelet-Európa (EU tagok)", countries:["HU","CZ","SK","PL","RO","BG","SI","HR","EE","LV","LT"] },
+  "EU_NON_EURO":{ name:"🇪🇺 EU nem-eurozóna tagok", countries:["BG","CZ","DK","HU","PL","RO","SE"] },
+  "CEE_EU_EURO":{ name:"💶 Közép-Kelet-Európa (EU + eurozóna)", countries:["EE","LV","LT","SK","SI","HR"] },
+  "CEE_EU_NON_EURO":{ name:"🇪🇺 Közép-Kelet-Európa (EU, nem eurozóna)", countries:["HU","CZ","PL","RO","BG"] }
+};
+
+let selectedDataset = null;
+let chartInstance = null, chartInstanceRaw = null;
+let allDataflows = [];
+let datasetDimensions = [], dimensionCodelists = {};
+let lastCalculationData = null, lastCalculationCountries = null;
+
+allDataflows = [
       { id: "ei_bpm6ca_q", name: "Current account - quarterly data" },
       { id: "ei_bpm6fa_q", name: "Financial account - quarterly data" },
       { id: "ei_bpm6ca_m", name: "Current account - monthly data" },
@@ -10640,1038 +10450,663 @@
       { id: "env_ww_genv", name: "Generation and discharge of wastewater in volume" }
     ];
 
+document.addEventListener('DOMContentLoaded', init);
 
-    /* ---------- INIT ---------- */
-    document.addEventListener('DOMContentLoaded', init);
+function init() {
+  renderCountrySelect();
+  document.getElementById('calculateBtn').addEventListener('click', calculate);
+  document.getElementById('datasetSearch').addEventListener('input', filterDataflowList);
+  document.getElementById('startDate').addEventListener('input', checkFormComplete);
+  document.getElementById('endDate').addEventListener('input', checkFormComplete);
+  const shareBtn = document.getElementById('shareBtn');
+  if (shareBtn) shareBtn.addEventListener('click', generateShareUrl);
+  const copyBtn = document.getElementById('copyBtn');
+  if (copyBtn) copyBtn.addEventListener('click', copyShareUrl);
+  const panelToggleBtn = document.getElementById('panelToggleBtn');
+  if (panelToggleBtn) {
+    panelToggleBtn.addEventListener('click', () => {
+      const body = document.getElementById('panelBody');
+      const icon = document.getElementById('panelToggleIcon');
+      if (!body || !icon) return;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      icon.classList.toggle('open', !isOpen);
+    });
+  }
+  if (allDataflows.length === 0) {
+    loadAllDataflows().then(() => loadFromUrl());
+  } else {
+    renderDataflowList(allDataflows);
+    const tocLoader = document.getElementById('tocLoader'); if (tocLoader) tocLoader.style.display = 'none';
+    loadFromUrl();
+  }
+}
 
-    function init() {
-      renderCountrySelect();
-      document.getElementById('calculateBtn').addEventListener('click', calculate);
-      document.getElementById('datasetSearch').addEventListener('input', filterDataflowList);
-      document.getElementById('startDate').addEventListener('input', checkFormComplete);
-      document.getElementById('endDate').addEventListener('input', checkFormComplete);
-
-      // Ha a beépített lista üres, töltsd be az API-ból
-      if (allDataflows.length === 0) {
-        loadAllDataflows();
-      } else {
-        // Használd a beépített listát
-        renderDataflowList(allDataflows);
-        document.getElementById('tocLoader').style.display = 'none';
-      }
+async function loadAllDataflows() {
+  const listDiv = document.getElementById('datasetList');
+  try {
+    listDiv.innerHTML = '<div class="small">Betöltés... ⏳</div>';
+    const resp = await fetch('https://ec.europa.eu/eurostat/api/dissemination/catalogue/toc/txt?lang=en');
+    if (!resp.ok) throw new Error('TOC hiba: ' + resp.status);
+    const lines = (await resp.text()).split('\n');
+    allDataflows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].trim().split('\t');
+      if (cols.length >= 3 && (cols[2].trim() === 'dataset' || cols[2].trim() === 'table') && cols[1].trim())
+        allDataflows.push({ id: cols[1].trim(), name: cols[0].trim() });
     }
+    allDataflows.sort((a, b) => (a.name||a.id).localeCompare(b.name||b.id));
+    renderDataflowList(allDataflows);
+  } catch (err) {
+    listDiv.innerHTML = `<div class="small">Hiba: ${err.message}</div>`;
+  } finally {
+    const tocLoader = document.getElementById('tocLoader'); if (tocLoader) tocLoader.style.display = 'none';
+  }
+}
 
-    /* ---------- DATAFLOW / TOC ---------- */
-    async function loadAllDataflows() {
-      const listDiv = document.getElementById('datasetList');
-      const loader = document.getElementById('tocLoader');
-      try {
-        listDiv.innerHTML = '<div class="small">Adatok betöltése a Eurostat TOC API-ból… <span class="loader">⏳</span></div>';
+function renderDataflowList(list) {
+  const container = document.getElementById('datasetList');
+  container.innerHTML = '';
+  if (!list.length) { container.innerHTML = '<div class="small">(Nincs dataset.)</div>'; return; }
+  const limit = 100;
+  list.slice(0, limit).forEach(df => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    div.textContent = `${df.id} — ${df.name||''}`;
+    div.addEventListener('click', () => onSelectDataset(df, div));
+    container.appendChild(div);
+  });
+  if (list.length > limit) {
+    const more = document.createElement('div');
+    more.className = 'small';
+    more.style.marginTop = '8px';
+    more.innerHTML = `Több dataset (${list.length}). <a href="#" id="showAll">Mutasd mind</a>`;
+    container.appendChild(more);
+    more.querySelector('#showAll').addEventListener('click', e => {
+      e.preventDefault(); container.innerHTML = '';
+      list.forEach(df => { const div = document.createElement('div'); div.className = 'list-item'; div.textContent = `${df.id} — ${df.name||''}`; div.addEventListener('click', () => onSelectDataset(df, div)); container.appendChild(div); });
+    });
+  }
+}
 
-        const url = 'https://ec.europa.eu/eurostat/api/dissemination/catalogue/toc/txt?lang=en';
-        console.log('TOC lekérdezés:', url);
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('TOC lekérés hiba: ' + resp.status);
-        const text = await resp.text();
-        const lines = text.split('\n');
+function filterDataflowList(e) {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return renderDataflowList(allDataflows);
+  renderDataflowList(allDataflows.filter(df => (df.id+' '+(df.name||'')).toLowerCase().includes(q)));
+}
 
-        allDataflows = [];
+async function onSelectDataset(df, element) {
+  document.querySelectorAll('.list-item').forEach(el => el.classList.remove('selected'));
+  element.classList.add('selected');
+  selectedDataset = df;
+  await loadDatasetInfo(df.id);
+  checkFormComplete();
+}
 
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
+async function loadDatasetInfo(datasetCode) {
+  setDisplay('errorMsg', 'none');
+  try {
+    await loadDateRange(datasetCode);
+    await loadDatasetDimensions(datasetCode);
+  } catch (err) {
+    const e = document.getElementById('errorMsg');
+    e.textContent = `Hiba: ${err.message||err}`; e.style.display = 'block';
+  }
+}
 
-          const cols = line.split('\t');
-          if (cols.length < 3) continue;
-
-          const title = cols[0].trim();
-          const code = cols[1].trim();
-          const type = cols[2].trim();
-
-          if ((type === 'dataset' || type === 'table') && code) {
-            allDataflows.push({ id: code, name: title });
-          }
-        }
-
-        allDataflows.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-
-        console.log(`Betöltve ${allDataflows.length} dataset/table`);
-        renderDataflowList(allDataflows);
-      } catch (err) {
-        console.error(err);
-        listDiv.innerHTML = `<div class="small">Hiba a TOC betöltése közben: ${err.message}</div>`;
-      } finally {
-        if (loader) loader.style.display = 'none';
-      }
+async function loadDateRange(datasetCode) {
+  const url = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/contentconstraint/ESTAT/${encodeURIComponent(datasetCode)}/latest`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(resp.status);
+    const xml = new DOMParser().parseFromString(await resp.text(), 'application/xml');
+    let timeValues = [];
+    xml.querySelectorAll('KeyValue').forEach(kv => {
+      const id = (kv.getAttribute('id')||'').toUpperCase();
+      if (id === 'TIME_PERIOD' || id === 'TIME')
+        timeValues.push(...Array.from(kv.querySelectorAll('Value')).map(v => v.textContent.trim()));
+    });
+    if (timeValues.length > 0) {
+      timeValues.sort();
+      const first = timeValues[0], last = timeValues[timeValues.length-1];
+      let ph = 'ÉÉÉÉ';
+      if (first.match(/^\d{4}-\d{2}$/)) ph = 'ÉÉÉÉ-HH';
+      else if (first.match(/^\d{4}-Q/)) ph = 'ÉÉÉÉ-Q[1-4]';
+      document.getElementById('startDate').value = first;
+      document.getElementById('endDate').value = last;
+      document.getElementById('startDate').placeholder = ph;
+      document.getElementById('endDate').placeholder = ph;
+      return;
     }
+  } catch(e) { console.warn('Dátum betöltési hiba:', e); }
+  document.getElementById('startDate').value = '2000';
+  document.getElementById('endDate').value = new Date().getFullYear().toString();
+}
 
-    function renderDataflowList(list) {
-      const container = document.getElementById('datasetList');
-      container.innerHTML = '';
-      if (!list.length) {
-        container.innerHTML = '<div class="small">(Nincs megjeleníthető dataset.)</div>';
-        return;
-      }
-      const limit = 100;
-      const ul = document.createElement('div');
+async function loadDatasetDimensions(datasetCode) {
+  const dynamicDiv = document.getElementById('dynamicInputs');
+  dynamicDiv.innerHTML = '<div class="small">Dimenziók betöltése... ⏳</div>';
+  const dsdResp = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/${encodeURIComponent(datasetCode)}/latest`);
+  if (!dsdResp.ok) throw new Error('DSD hiba: ' + dsdResp.status);
+  const xml = new DOMParser().parseFromString(await dsdResp.text(), 'application/xml');
+  const filteredDims = Array.from(xml.querySelectorAll('Dimension')).filter(d => {
+    const c = (d.getAttribute('conceptRef')||d.getAttribute('id')||'').toUpperCase();
+    return c !== 'TIME_PERIOD' && c !== 'TIME' && c !== 'GEO';
+  });
+  datasetDimensions = []; dimensionCodelists = {};
+  const availableValues = await loadAvailableConstraint(datasetCode);
+  dynamicDiv.innerHTML = '';
+  let i = 1;
+  for (const dim of filteredDims) {
+    const conceptRef = dim.getAttribute('conceptRef')||dim.getAttribute('id')||`dim_${i}`;
+    const codelistRef = dim.querySelector('Enumeration Ref')?.getAttribute('id')||dim.getAttribute('codelist')||'';
+    let values = [];
+    if (codelistRef) { try { values = await loadCodelist(codelistRef); } catch(e) {} }
+    const avail = availableValues[conceptRef]||availableValues[conceptRef.toUpperCase()]||availableValues[conceptRef.toLowerCase()];
+    if (avail && avail.length > 0) {
+      const s = new Set(avail.map(v => v.toUpperCase()));
+      values = values.filter(v => s.has(v.id.toUpperCase()));
+    }
+    dimensionCodelists[conceptRef] = values;
+    datasetDimensions.push({ id: conceptRef, codelist: codelistRef });
+    const fg = document.createElement('div'); fg.className = 'form-group';
+    const lbl = document.createElement('label'); lbl.textContent = `Input ${i}: ${conceptRef}`; fg.appendChild(lbl);
+    const sel = document.createElement('select'); sel.id = `dim_${conceptRef}`; sel.className = 'dimension-select';
+    if (values.length > 0) {
+      const d = document.createElement('option'); d.value = ''; d.textContent = 'Válassz...'; sel.appendChild(d);
+      values.forEach(v => { const o = document.createElement('option'); o.value = v.id; o.textContent = `${v.id} — ${v.label}`; sel.appendChild(o); });
+      if (sel.options.length > 1) sel.selectedIndex = 1;
+    } else { const o = document.createElement('option'); o.value = ''; o.textContent = '(nincs érték)'; sel.appendChild(o); }
+    sel.addEventListener('change', checkFormComplete); fg.appendChild(sel);
+    const info = document.createElement('div'); info.className = 'small'; info.textContent = `${values.length} elérhető érték`; fg.appendChild(info);
+    dynamicDiv.appendChild(fg); i++;
+  }
+  if (filteredDims.length === 0) dynamicDiv.innerHTML = '<div class="small info">Nincs további dimenzió.</div>';
+}
 
-      list.slice(0, limit).forEach(df => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        div.textContent = `${df.id} — ${df.name || ''}`;
-        div.dataset.id = df.id;
-        div.addEventListener('click', () => onSelectDataset(df, div));
-        ul.appendChild(div);
+async function loadAvailableConstraint(datasetCode) {
+  try {
+    const resp = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/contentconstraint/ESTAT/${encodeURIComponent(datasetCode)}/latest`);
+    if (!resp.ok) return {};
+    const xml = new DOMParser().parseFromString(await resp.text(), 'application/xml');
+    const result = {};
+    xml.querySelectorAll('CubeRegion').forEach(region => {
+      region.querySelectorAll('KeyValue').forEach(kv => {
+        const id = kv.getAttribute('id');
+        if (!id || ['TIME_PERIOD','GEO','TIME'].includes(id.toUpperCase())) return;
+        const vals = Array.from(kv.querySelectorAll('Value')).map(v => v.textContent.trim());
+        if (vals.length) result[id] = result[id] ? [...new Set([...result[id],...vals])] : vals;
       });
+    });
+    return result;
+  } catch(e) { return {}; }
+}
 
-      container.appendChild(ul);
+async function loadCodelist(codelistId) {
+  const id = codelistId.split(':').pop();
+  const resp = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/codelist/ESTAT/${encodeURIComponent(id)}/latest`);
+  if (!resp.ok) throw new Error('Codelist hiba: ' + resp.status);
+  const xml = new DOMParser().parseFromString(await resp.text(), 'application/xml');
+  return Array.from(xml.querySelectorAll('Code')).map(c => {
+    const id = c.getAttribute('value')||c.getAttribute('id')||'';
+    const names = Array.from(c.querySelectorAll('Name'));
+    const en = names.find(n => { const l = n.getAttribute('xml:lang')||n.getAttribute('lang')||n.getAttributeNS('http://www.w3.org/XML/1998/namespace','lang'); return l && l.toLowerCase()==='en'; });
+    return { id, label: (en||names[0])?.textContent.trim()||id };
+  });
+}
 
-      if (list.length > limit) {
-        const more = document.createElement('div');
-        more.className = 'small';
-        more.style.marginTop = '8px';
-        more.innerHTML = `Több dataset elérhető (${list.length}). Keresd a kívánt datasetet a keresőmezőben, vagy <a href="#" id="showAll">mutasd mind</a>.`;
-        container.appendChild(more);
-        more.querySelector('#showAll').addEventListener('click', (e) => {
-          e.preventDefault();
-          container.innerHTML = '';
-          list.forEach(df => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.textContent = `${df.id} — ${df.name || ''}`;
-            div.dataset.id = df.id;
-            div.addEventListener('click', () => onSelectDataset(df, div));
-            container.appendChild(div);
-          });
-        });
-      }
-    }
+function renderCountrySelect() {
+  const sel = document.getElementById('countrySelect');
+  const ag = document.createElement('optgroup'); ag.label = '📊 Ország csoportok';
+  Object.keys(countryAggregates).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = countryAggregates[k].name; ag.appendChild(o); });
+  sel.appendChild(ag);
+  const cg = document.createElement('optgroup'); cg.label = '🌍 Országok';
+  Object.keys(countryMap).sort((a,b) => countryMap[a].localeCompare(countryMap[b])).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = `${k} — ${countryMap[k]}`; cg.appendChild(o); });
+  sel.appendChild(cg);
+  sel.addEventListener('change', handleCountrySelection);
+  sel.addEventListener('change', checkFormComplete);
+}
 
-    function filterDataflowList(e) {
-      const q = e.target.value.trim().toLowerCase();
-      if (!q) return renderDataflowList(allDataflows);
-      const filtered = allDataflows.filter(df => (df.id + ' ' + (df.name || '')).toLowerCase().includes(q));
-      renderDataflowList(filtered);
-    }
+function handleCountrySelection() {
+  const sel = document.getElementById('countrySelect');
+  if (sel.dataset.programmaticChange === 'true') return;
+  sel.dataset.programmaticChange = 'true';
+  Array.from(sel.selectedOptions).map(o => o.value).forEach(v => {
+    if (countryAggregates[v]) countryAggregates[v].countries.forEach(c => { const o = Array.from(sel.options).find(x => x.value === c); if (o) o.selected = true; });
+  });
+  const selCountries = Array.from(sel.selectedOptions).map(o => o.value).filter(v => countryMap[v]);
+  Object.keys(countryAggregates).forEach(k => {
+    const o = Array.from(sel.options).find(x => x.value === k);
+    if (o) o.selected = countryAggregates[k].countries.length > 0 && countryAggregates[k].countries.every(c => selCountries.includes(c));
+  });
+  sel.dataset.programmaticChange = 'false';
+}
 
-    /* ---------- DATASET SELECTION ---------- */
-    function clearSelectedDatasetUI() {
-      document.querySelectorAll('.list-item').forEach(el => el.classList.remove('selected'));
-      selectedDataset = null;
-      document.getElementById('selectedIndicator')?.remove();
-      // töröljük a dinamikus inputokat
-      document.getElementById('dynamicInputs').innerHTML = '';
-      datasetDimensions = [];
-      dimensionCodelists = {};
-      checkFormComplete();
-    }
+function checkFormComplete() {
+  const btn = document.getElementById('calculateBtn');
+  const ok = selectedDataset && document.getElementById('countrySelect').selectedOptions.length > 0
+    && document.getElementById('startDate').value.trim() && document.getElementById('endDate').value.trim()
+    && Array.from(document.querySelectorAll('.dimension-select')).every(s => s.value !== '');
+  btn.disabled = !ok;
+}
 
-    async function onSelectDataset(df, element) {
-      // jelölés
-      document.querySelectorAll('.list-item').forEach(el => el.classList.remove('selected'));
-      element.classList.add('selected');
-      selectedDataset = df;
-      console.log('Kiválasztott dataset:', df);
-      // betöltjük a dátumhatárokat és dimenziókat
-      await loadDatasetInfo(df.id);
-      checkFormComplete();
-    }
-
-    /* ---------- DATASET INFO & DIMENSIONS ---------- */
-    async function loadDatasetInfo(datasetCode) {
-      const errorDiv = document.getElementById('errorMsg');
-      errorDiv.style.display = 'none';
-
-      try {
-        // 1) Dátumhatárok betöltése a dataflow-ból
-        await loadDateRange(datasetCode);
-
-        // 2) Dimenziók betöltése a DSD-ből
-        await loadDatasetDimensions(datasetCode);
-
-      } catch (err) {
-        console.error(err);
-        errorDiv.textContent = `Hiba a dataset információk betöltése közben: ${err.message || err}`;
-        errorDiv.style.display = 'block';
-      }
-    }
-
-    async function loadDateRange(datasetCode) {
-      // A contentconstraint API-ból közvetlenül kinyerjük a TIME_PERIOD értékeket
-      const constraintUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/contentconstraint/ESTAT/${encodeURIComponent(datasetCode)}/latest`;
-      console.log('ContentConstraint URL (dátumokhoz):', constraintUrl);
-
-      try {
-        const resp = await fetch(constraintUrl);
-        if (!resp.ok) throw new Error('ContentConstraint lekérés hiba: ' + resp.status);
-        const text = await resp.text();
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(text, 'application/xml');
-
-        // Keressük a TIME_PERIOD KeyValue-t
-        const keyValues = xml.querySelectorAll('KeyValue');
-        let timeValues = [];
-
-        keyValues.forEach(kv => {
-          const id = kv.getAttribute('id');
-          if (id && (id.toUpperCase() === 'TIME_PERIOD' || id.toUpperCase() === 'TIME')) {
-            const values = Array.from(kv.querySelectorAll('Value')).map(v => v.textContent.trim());
-            timeValues.push(...values);
-          }
-        });
-
-        if (timeValues.length > 0) {
-          // Rendezzük az értékeket
-          timeValues.sort();
-
-          const firstValue = timeValues[0];
-          const lastValue = timeValues[timeValues.length - 1];
-
-          console.log('TIME_PERIOD értékek:', firstValue, '...', lastValue, `(összesen ${timeValues.length})`);
-
-          // Automatikus formátum felismerés
-          let startDate = firstValue;
-          let endDate = lastValue;
-          let placeholder = 'ÉÉÉÉ';
-
-          if (firstValue.match(/^\d{4}-\d{2}$/)) {
-            // Havi: 2020-01
-            placeholder = 'ÉÉÉÉ-HH (pl. 2020-01)';
-          } else if (firstValue.match(/^\d{4}-Q[1-4]$/)) {
-            // Negyedéves: 2020-Q1
-            placeholder = 'ÉÉÉÉ-Q[1-4] (pl. 2020-Q1)';
-          } else if (firstValue.match(/^\d{4}-[WS]\d{2}$/)) {
-            // Heti/féléves: 2020-W01 vagy 2020-S1
-            placeholder = firstValue.includes('W') ? 'ÉÉÉÉ-W[hét] (pl. 2020-W01)' : 'ÉÉÉÉ-S[félév] (pl. 2020-S1)';
-          } else if (firstValue.match(/^\d{4}$/)) {
-            // Éves: 2020
-            placeholder = 'ÉÉÉÉ (pl. 2020)';
-          }
-
-          // Beállítjuk az input mezőket
-          const startInput = document.getElementById('startDate');
-          const endInput = document.getElementById('endDate');
-
-          startInput.value = startDate;
-          endInput.value = endDate;
-          startInput.placeholder = placeholder;
-          endInput.placeholder = placeholder;
-
-          console.log(`Felismert dátum formátum: ${placeholder}`);
-          return;
-        }
-      } catch (e) {
-        console.warn('Hiba a contentconstraint dátum lekérésénél:', e);
-      }
-
-      // Fallback: alapértelmezett évek
-      const startInput = document.getElementById('startDate');
-      const endInput = document.getElementById('endDate');
-      startInput.value = '2000';
-      endInput.value = new Date().getFullYear().toString();
-      startInput.placeholder = 'ÉÉÉÉ (pl. 2000)';
-      endInput.placeholder = 'ÉÉÉÉ (pl. 2023)';
-    }
-
-    async function loadDatasetDimensions(datasetCode) {
-      const dynamicDiv = document.getElementById('dynamicInputs');
-      dynamicDiv.innerHTML = '<div class="small">Dimenziók betöltése... ⏳</div>';
-
-      const dsdUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/${encodeURIComponent(datasetCode)}/latest`;
-      console.log('DSD URL:', dsdUrl);
-      const dsdResp = await fetch(dsdUrl);
-      if (!dsdResp.ok) throw new Error('DSD lekérés hiba: ' + dsdResp.status);
-      const dsdText = await dsdResp.text();
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(dsdText, 'application/xml');
-
-      // Dimension elemek kinyerése
-      const dims = Array.from(xml.querySelectorAll('Dimension'));
-
-      // Szűrjük ki a TIME_PERIOD és GEO dimenziókat, mert azok már kezelve vannak
-      const filteredDims = dims.filter(d => {
-        const concept = (d.getAttribute('conceptRef') || d.getAttribute('id') || '').toUpperCase();
-        return concept !== 'TIME_PERIOD' && concept !== 'TIME' && concept !== 'GEO';
-      });
-
-      datasetDimensions = [];
-      dimensionCodelists = {};
-
-      // Betöltjük az availableconstraint-et, hogy csak a ténylegesen létező értékeket jelenítsük meg
-      const availableValues = await loadAvailableConstraint(datasetCode);
-      console.log('Elérhető értékek a datasetben:', availableValues);
-
-      // HTML generálás
-      dynamicDiv.innerHTML = '';
-      let inputCounter = 1;
-
-      for (const dim of filteredDims) {
-        const conceptRef = dim.getAttribute('conceptRef') || dim.getAttribute('id') || `dim_${inputCounter}`;
-        const codelistRef = dim.querySelector('Enumeration Ref')?.getAttribute('id') ||
-          dim.getAttribute('codelist') || '';
-
-        // Codelist betöltése
-        let allValues = [];
-        if (codelistRef) {
-          try {
-            allValues = await loadCodelist(codelistRef);
-          } catch (e) {
-            console.warn(`Nem sikerült betölteni a codelist-et: ${codelistRef}`, e);
-          }
-        }
-
-        // Szűrjük le csak azokra az értékekre, amik ténylegesen léteznek a datasetben
-        let values = allValues;
-
-        // Próbáljuk meg különböző case variációkkal
-        const conceptUpper = conceptRef.toUpperCase();
-        const conceptLower = conceptRef.toLowerCase();
-
-        let availableForThisDim = availableValues[conceptRef] ||
-          availableValues[conceptUpper] ||
-          availableValues[conceptLower];
-
-        if (availableForThisDim && availableForThisDim.length > 0) {
-          const availableIds = new Set(availableForThisDim.map(v => v.toUpperCase()));
-          values = allValues.filter(v => availableIds.has(v.id.toUpperCase()));
-          console.log(`${conceptRef}: ${allValues.length} -> ${values.length} (szűrve)`);
-        } else {
-          console.log(`${conceptRef}: Nincs szűrési információ, minden érték megjelenik (${allValues.length})`);
-        }
-
-        dimensionCodelists[conceptRef] = values;
-        datasetDimensions.push({ id: conceptRef, codelist: codelistRef });
-
-        // Form group létrehozása
-        const formGroup = document.createElement('div');
-        formGroup.className = 'form-group';
-
-        const label = document.createElement('label');
-        label.textContent = `Input ${inputCounter}: ${conceptRef}`;
-        formGroup.appendChild(label);
-
-        const select = document.createElement('select');
-        select.id = `dim_${conceptRef}`;
-        select.className = 'dimension-select';
-
-        if (values.length > 0) {
-          const defaultOpt = document.createElement('option');
-          defaultOpt.value = '';
-          defaultOpt.textContent = 'Válassz értéket...';
-          select.appendChild(defaultOpt);
-
-          values.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.id;
-            opt.textContent = `${v.id} — ${v.label}`;
-            select.appendChild(opt);
-          });
-
-          // Auto-select első érték
-          if (select.options.length > 1) select.selectedIndex = 1;
-        } else {
-          const opt = document.createElement('option');
-          opt.value = '';
-          opt.textContent = '(nincs elérhető érték)';
-          select.appendChild(opt);
-        }
-
-        select.addEventListener('change', checkFormComplete);
-        formGroup.appendChild(select);
-
-        const info = document.createElement('div');
-        info.className = 'small';
-        info.textContent = values.length > 0 ? `${values.length} ténylegesen elérhető érték` : 'Nincs elérhető érték';
-        formGroup.appendChild(info);
-
-        dynamicDiv.appendChild(formGroup);
-        inputCounter++;
-      }
-
-      if (filteredDims.length === 0) {
-        dynamicDiv.innerHTML = '<div class="small info">Ez a dataset nem tartalmaz további dimenziókat (csak TIME_PERIOD és GEO).</div>';
-      }
-    }
-
-    async function loadAvailableConstraint(datasetCode) {
-      // A contentconstraint API végpont megadja a ténylegesen elérhető dimenzióértékeket
-      const constraintUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/contentconstraint/ESTAT/${encodeURIComponent(datasetCode)}/latest`;
-      console.log('ContentConstraint URL:', constraintUrl);
-
-      try {
-        const resp = await fetch(constraintUrl);
-        if (!resp.ok) {
-          console.warn('ContentConstraint nem elérhető:', resp.status);
-          return {};
-        }
-
-        const text = await resp.text();
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(text, 'application/xml');
-
-        const result = {};
-
-        // Keressük a CubeRegion KeyValue elemeket - ezek tartalmazzák az elérhető értékeket
-        const cubeRegions = xml.querySelectorAll('CubeRegion');
-
-        cubeRegions.forEach(region => {
-          const keyValues = region.querySelectorAll('KeyValue');
-
-          keyValues.forEach(kv => {
-            const dimId = kv.getAttribute('id');
-            if (!dimId || dimId.toUpperCase() === 'TIME_PERIOD' || dimId.toUpperCase() === 'GEO') {
-              return; // Ezeket már külön kezeljük
-            }
-
-            // Gyűjtsük össze az összes Value elemet
-            const values = Array.from(kv.querySelectorAll('Value')).map(v => v.textContent.trim());
-
-            if (values.length > 0) {
-              // Ha már van ilyen dimenzió, merge-eljük az értékeket
-              if (result[dimId]) {
-                result[dimId] = [...new Set([...result[dimId], ...values])];
-              } else {
-                result[dimId] = values;
-              }
-            }
-          });
-        });
-
-        console.log('ContentConstraint-ből kinyert elérhető értékek:', result);
-        return result;
-
-      } catch (e) {
-        console.warn('Hiba a contentconstraint betöltése közben:', e);
-        return {};
-      }
-    }
-
-    async function loadCodelist(codelistId) {
-      // a codelistId gyakran formában: "ESTAT:GEO" vagy csak "GEO", a DSD-ből kiveendő pontos string
-      // Az Eurostat migrációs útmutató alapján: https://ec.europa.eu/eurostat/web/user-guides/data-browser/api-data-access/api-migrating/bulkdownload
-      // codelist letöltés (XML)
-      const normalized = codelistId.split(':').pop(); // ha benne agency prefix
-      const url = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/codelist/ESTAT/${encodeURIComponent(normalized)}/latest`;
-      console.log('Codelist URL:', url);
+async function loadEurostatData(datasetCode, countries, dimValues, startDate, endDate) {
+  const allData = {};
+  for (const country of countries) {
+    try {
+      const params = Object.keys(dimValues).map(d => `c[${d}]=${dimValues[d]}`);
+      params.push(`c[geo]=${country}`, `c[TIME_PERIOD]=ge:${startDate}+le:${endDate}`, 'compress=false', 'format=tsv');
+      const url = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/${datasetCode}/1.0/*?${params.join('&')}`;
       const resp = await fetch(url);
-      if (!resp.ok) throw new Error('Codelist betöltési hiba: ' + resp.status);
-      const text = await resp.text();
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(text, 'application/xml');
-      const codes = Array.from(xml.querySelectorAll('Code'));
-      // Name lehet lokalizált, prioritásként angolt próbálunk
-      return codes.map(c => {
-        const id = c.getAttribute('value') || c.getAttribute('id') || '';
-
-        // Keressük meg az angol címkét minden lehetséges módon
-        const allNames = Array.from(c.querySelectorAll('Name'));
-        const nameEn = allNames.find(n => {
-          const lang = n.getAttribute('xml:lang') || n.getAttribute('lang') || n.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'lang');
-          return lang && lang.toLowerCase() === 'en';
-        });
-
-        let label = id;
-        if (nameEn) {
-          label = nameEn.textContent.trim();
-        } else if (allNames.length > 0) {
-          // Ha nincs angol, akkor az első Name elemet használjuk
-          label = allNames[0].textContent.trim();
-        }
-
-        return { id, label };
-      });
-    }
-
-    /* ---------- COUNTRY SELECT & FORM ---------- */
-    function renderCountrySelect() {
-      const sel = document.getElementById('countrySelect');
-      sel.innerHTML = '';
-      
-      // Először az aggregátumokat tesszük be
-      const aggregateGroup = document.createElement('optgroup');
-      aggregateGroup.label = '📊 Ország csoportok';
-      Object.keys(countryAggregates).forEach(aggCode => {
-        const opt = document.createElement('option');
-        opt.value = aggCode;
-        opt.textContent = countryAggregates[aggCode].name;
-        opt.className = 'aggregate-option';
-        aggregateGroup.appendChild(opt);
-      });
-      sel.appendChild(aggregateGroup);
-      
-      // Majd az egyedi országokat
-      const countryGroup = document.createElement('optgroup');
-      countryGroup.label = '🌍 Országok';
-      Object.keys(countryMap).sort((a, b) => countryMap[a].localeCompare(countryMap[b])).forEach(code => {
-        const opt = document.createElement('option');
-        opt.value = code;
-        opt.textContent = `${code} — ${countryMap[code]}`;
-        opt.className = 'country-option';
-        countryGroup.appendChild(opt);
-      });
-      sel.appendChild(countryGroup);
-      
-      // Event listener a kiválasztások kezelésére
-      sel.addEventListener('change', handleCountrySelection);
-      sel.addEventListener('change', checkFormComplete);
-    }
-
-    function handleCountrySelection(event) {
-      const sel = document.getElementById('countrySelect');
-      const selectedValues = Array.from(sel.selectedOptions).map(opt => opt.value);
-      
-      // Ne fusson újra, ha épp mi állítjuk be programmatikusan
-      if (sel.dataset.programmaticChange === 'true') {
-        return;
-      }
-      
-      sel.dataset.programmaticChange = 'true';
-      
-      // 1. Ha aggregátumot választottak, válasszuk ki a benne lévő országokat is
-      selectedValues.forEach(value => {
-        if (countryAggregates[value]) {
-          countryAggregates[value].countries.forEach(countryCode => {
-            const option = Array.from(sel.options).find(opt => opt.value === countryCode);
-            if (option) {
-              option.selected = true;
-            }
-          });
-        }
-      });
-      
-      // 2. Ellenőrizzük, hogy vannak-e teljes aggregátumok kiválasztva az országok alapján
-      const selectedCountries = Array.from(sel.selectedOptions)
-        .map(opt => opt.value)
-        .filter(val => countryMap[val]); // Csak a tényleges országok
-      
-      Object.keys(countryAggregates).forEach(aggCode => {
-        const aggCountries = countryAggregates[aggCode].countries;
-        const allSelected = aggCountries.every(c => selectedCountries.includes(c));
-        const option = Array.from(sel.options).find(opt => opt.value === aggCode);
-        
-        if (option) {
-          if (allSelected && aggCountries.length > 0) {
-            option.selected = true;
-          } else {
-            option.selected = false;
+      if (!resp.ok) { console.warn(`HTTP ${resp.status}: ${country}`); continue; }
+      const lines = (await resp.text()).split('\n');
+      if (lines.length < 2) continue;
+      const dates = lines[0].split('\t').slice(1).map(d => d.trim()).filter(d => d);
+      allData[country] = {};
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const cols = lines[i].split('\t');
+        const row = cols[0];
+        let match = Object.values(dimValues).every(v => row.toUpperCase().includes(v.toUpperCase())) && row.toUpperCase().includes(country.toUpperCase());
+        if (match) {
+          for (let j = 1; j < cols.length && j <= dates.length; j++) {
+            const v = parseFloat(cols[j].trim().replace(/[^\d.-]/g,''));
+            if (!isNaN(v) && dates[j-1]) allData[country][dates[j-1]] = v;
           }
-        }
-      });
-      
-      sel.dataset.programmaticChange = 'false';
-    }
-
-    function checkFormComplete() {
-      const btn = document.getElementById('calculateBtn');
-      const hasDataset = selectedDataset !== null;
-      const hasCountries = document.getElementById('countrySelect').selectedOptions.length > 0;
-      const hasStart = document.getElementById('startDate').value.trim() !== '';
-      const hasEnd = document.getElementById('endDate').value.trim() !== '';
-
-      // Ellenőrizzük a dinamikus dimenzió mezőket
-      const dimSelects = document.querySelectorAll('.dimension-select');
-      let allDimsSelected = true;
-      dimSelects.forEach(sel => {
-        if (sel.value === '') allDimsSelected = false;
-      });
-
-      btn.disabled = !(hasDataset && hasCountries && hasStart && hasEnd && allDimsSelected);
-    }
-
-    /* ---------- EUROSTAT DATA LOADING ---------- */
-    async function loadEurostatData(datasetCode, countries, dimValues, startDate, endDate) {
-      // Építsük fel a URL-t a kiválasztott dimenzióértékekkel
-      // TIME_PERIOD szűrés: ge:startDate+le:endDate (greater or equal + less or equal)
-
-      const allData = {};
-
-      for (const country of countries) {
-        try {
-          // Query paraméterek építése
-          let queryParams = [];
-
-          // Dinamikus dimenziók hozzáadása
-          Object.keys(dimValues).forEach(dimId => {
-            queryParams.push(`c[${dimId}]=${dimValues[dimId]}`);
-          });
-
-          // Ország
-          queryParams.push(`c[geo]=${country}`);
-
-          // Időszak tartomány szűrés (ge = greater or equal, le = less or equal)
-          queryParams.push(`c[TIME_PERIOD]=ge:${startDate}+le:${endDate}`);
-
-          queryParams.push('compress=false');
-          queryParams.push('format=tsv');
-
-          const url = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/${datasetCode}/1.0/*?${queryParams.join('&')}`;
-          console.log(`Adatok betöltése: ${country}`);
-
-          const response = await fetch(url);
-          if (!response.ok) {
-            console.warn(`HTTP ${response.status} hiba ennél: ${country}`);
-            continue;
-          }
-
-          const tsvText = await response.text();
-          const lines = tsvText.split('\n');
-
-          if (lines.length < 2) {
-            console.warn(`Nincs adat ennél: ${country}`);
-            continue;
-          }
-
-          // Header: első sor tartalmazza a dátumokat
-          const headerLine = lines[0].split('\t');
-          const dates = headerLine.slice(1).map(d => d.trim()).filter(d => d);
-
-          allData[country] = {};
-
-          // Adatsorok feldolgozása
-          for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-
-            const cols = lines[i].split('\t');
-            const rowLabel = cols[0];
-
-            // Ellenőrizzük, hogy ez a sor tartalmazza-e a keresett kombinációt
-            let isMatch = true;
-
-            // Ellenőrizzük, hogy minden dimenzióérték benne van-e a rowLabel-ben
-            Object.values(dimValues).forEach(val => {
-              if (!rowLabel.toUpperCase().includes(val.toUpperCase())) isMatch = false;
-            });
-
-            if (!rowLabel.toUpperCase().includes(country.toUpperCase())) isMatch = false;
-
-            if (isMatch) {
-              // Olvassuk ki az értékeket
-              for (let j = 1; j < cols.length && j <= dates.length; j++) {
-                const value = cols[j].trim();
-                if (value && value !== ':' && value !== '') {
-                  // Tisztítsuk meg az értéket (pl. "123.45 p" -> 123.45)
-                  const cleanValue = value.replace(/[^\d.-]/g, '');
-                  const numValue = parseFloat(cleanValue);
-                  if (!isNaN(numValue) && dates[j - 1]) {
-                    allData[country][dates[j - 1]] = numValue;
-                  }
-                }
-              }
-              break; // Megvan az első illeszkedő sor, tovább
-            }
-          }
-
-          if (Object.keys(allData[country]).length === 0) {
-            console.warn(`Nem található érvényes adat ennél: ${country}`);
-          } else {
-            console.log(`${country}: ${Object.keys(allData[country]).length} adatpont betöltve`);
-          }
-
-        } catch (error) {
-          console.error(`Hiba a(z) ${country} adatainak betöltésekor:`, error);
+          break;
         }
       }
+    } catch(err) { console.error(`Hiba ${country}:`, err); }
+  }
+  return allData;
+}
 
-      return allData;
+/* ---- ADATELÉRHETŐSÉG ELEMZÉS ---- */
+function analyzeDataAvailability(data, countries) {
+  const availability = {};
+  countries.forEach(c => {
+    if (data[c] && Object.keys(data[c]).length > 0) {
+      const dates = Object.keys(data[c]).sort();
+      availability[c] = { first: dates[0], last: dates[dates.length-1], count: dates.length };
+    } else {
+      availability[c] = null;
     }
+  });
 
-    function checkForNegativeValues(data) {
-      for (const c in data) for (const t in data[c]) if (data[c][t] < 0) return true;
-      return false;
+  const withData = countries.filter(c => availability[c] !== null);
+  if (withData.length === 0) return { commonStart: null, commonEnd: null, validCountries: [], withData, availability };
+
+  // Közös intervallum: max(first) -> min(last)
+  const commonStart = withData.map(c => availability[c].first).sort().reverse()[0];
+  const commonEnd   = withData.map(c => availability[c].last).sort()[0];
+
+  const isValid = commonStart <= commonEnd;
+
+  // Azok az országok, amelyeknek megvan az egész közös intervallum
+  const validCountries = isValid
+    ? withData.filter(c => availability[c].first <= commonStart && availability[c].last >= commonEnd)
+    : [];
+
+  return { commonStart: isValid ? commonStart : null, commonEnd: isValid ? commonEnd : null, validCountries, withData, availability };
+}
+
+function showAvailabilityPanel(result, requestedCountries, requestedStart, requestedEnd) {
+  const panel = document.getElementById('dataAvailabilityPanel');
+  const msg = document.getElementById('commonRangeMsg');
+  const tbody = document.getElementById('availabilityTableBody');
+  const panelBody = document.getElementById('panelBody');
+  const toggleIcon = document.getElementById('panelToggleIcon');
+  panel.style.display = 'block';
+  tbody.innerHTML = '';
+
+  const { commonStart, commonEnd, validCountries, availability } = result;
+  const excluded = requestedCountries.filter(c => !validCountries.includes(c));
+  const noInterval = !commonStart || !commonEnd;
+
+  // Meghatározzuk, van-e részleges ország (kért intervallumhoz képest)
+  const hasPartial = !noInterval && requestedCountries.some(c => {
+    const avail = availability[c];
+    if (!avail) return false;
+    return !(avail.first <= requestedStart && avail.last >= requestedEnd);
+  });
+
+  const hasIssues = hasPartial || noInterval;
+
+  if (commonStart && commonEnd) {
+    const cls = hasPartial ? 'range-warn' : 'range-ok';
+    const icon = hasPartial ? '⚠️' : '✅';
+    const partialList = hasPartial
+      ? requestedCountries.filter(c => { const a = availability[c]; return a && !(a.first <= requestedStart && a.last >= requestedEnd); })
+      : [];
+    msg.innerHTML = '<div class="' + cls + '">' + icon + ' Közös időintervallum: <strong>' + commonStart + ' — ' + commonEnd + '</strong>'
+      + (hasPartial ? '<br>⚠️ Részleges lefedettség: <strong>' + partialList.map(c => c + ' (' + (countryMap[c]||c) + ')').join(', ') + '</strong>' : '')
+      + '</div>';
+  } else {
+    msg.innerHTML = '<div class="range-err">❌ Nincs közös időintervallum az összes kiválasztott ország között.</div>';
+  }
+
+  requestedCountries.forEach(c => {
+    const avail = availability[c];
+    const tr = document.createElement('tr');
+    if (!avail) {
+      tr.innerHTML = '<td><strong>' + c + '</strong> — ' + (countryMap[c]||c) + '</td><td colspan="3" style="color:#999;font-style:italic">Nincs adat</td><td><span class="badge badge-err">Nincs adat</span></td>';
+    } else {
+      // Badge: a KÉRT intervallumhoz viszonyítva
+      const coversRequested = avail.first <= requestedStart && avail.last >= requestedEnd;
+      const badge = coversRequested
+        ? '<span class="badge badge-ok">Teljes</span>'
+        : '<span class="badge badge-warn">Részleges</span>';
+      if (!coversRequested) tr.classList.add('row-excluded');
+      tr.innerHTML = '<td><strong>' + c + '</strong> — ' + (countryMap[c]||c) + '</td><td>' + avail.first + '</td><td>' + avail.last + '</td><td>' + avail.count + ' pont</td><td>' + badge + '</td>';
     }
+    tbody.appendChild(tr);
+  });
 
-    function setupCalculationMethod(hasNegative) {
-      const methodDiv = document.getElementById('calculationMethod');
-      const ratio = document.getElementById('methodRatio');
+  // Ha van részleges/probléma: nyitva + görgetés; ha minden teljes: összecsukva
+  if (hasIssues) {
+    panelBody.style.display = 'block';
+    toggleIcon.classList.add('open');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    panelBody.style.display = 'none';
+    toggleIcon.classList.remove('open');
+  }
+}
+
+function filterDataToInterval(data, countries, start, end) {
+  const filtered = {};
+  countries.forEach(c => {
+    filtered[c] = {};
+    if (data[c]) Object.keys(data[c]).sort().forEach(d => { if (d >= start && d <= end) filtered[c][d] = data[c][d]; });
+  });
+  return filtered;
+}
+
+function checkForNegativeValues(data) {
+  for (const c in data) for (const t in data[c]) if (data[c][t] < 0) return true;
+  return false;
+}
+
+function setupCalculationMethod(hasNeg) {
+  const m = document.getElementById('calculationMethod');
+  const r = document.getElementById('methodRatio'), d = document.getElementById('methodDifference');
+  m.style.display = 'block';
+  r.removeEventListener('change', recalculate); d.removeEventListener('change', recalculate);
+  if (hasNeg) { r.disabled = true; d.disabled = false; d.checked = true; }
+  else { r.disabled = false; d.disabled = false; r.checked = true; r.addEventListener('change', recalculate); d.addEventListener('change', recalculate); }
+}
+
+function recalculate() {
+  if (lastCalculationData && lastCalculationCountries) processAndDisplay(lastCalculationData, lastCalculationCountries);
+}
+
+function processAndDisplay(data, countries) {
+  const dates = Object.keys(data[countries[0]]).sort();
+  const useRatio = document.getElementById('methodRatio').checked;
+  const avgs = {};
+  dates.forEach(d => { avgs[d] = countries.reduce((s,c) => s+(data[c][d]||0), 0) / countries.length; });
+  const startAvg = avgs[dates[0]];
+  const startVals = {};
+  countries.forEach(c => {
+    const v = data[c][dates[0]]||0;
+    startVals[c] = useRatio ? (startAvg===0 ? 0 : v/startAvg) : v-startAvg;
+  });
+  const colors = ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#FF9F40','#C9CBCF','#7BD389','#A3A0FB','#F780A1'];
+  const datasets = [], datasetsRaw = [];
+  countries.forEach((c, i) => {
+    const series = [], raw = [];
+    dates.forEach(d => {
+      const v = data[c][d]||0, avg = avgs[d]||0;
+      series.push(useRatio ? (avg===0?0:v/avg)-startVals[c] : (v-avg)-startVals[c]);
+      raw.push(v);
+    });
+    const color = colors[i%colors.length];
+    datasets.push({ label:`${c} — ${countryMap[c]||c}`, data:series, borderColor:color, backgroundColor:color+'22', tension:0.1, fill:false });
+    datasetsRaw.push({ label:`${c} — ${countryMap[c]||c}`, data:raw, borderColor:color, backgroundColor:color+'22', tension:0.1, fill:false });
+  });
+  let dimLabels = datasetDimensions.map(dim => { const s = document.getElementById(`dim_${dim.id}`); return s && s.value ? (s.selectedOptions[0]?.text||s.value) : null; }).filter(Boolean);
+  const title = `${selectedDataset?.name||''} ${dimLabels.length ? '- '+dimLabels.join(', ') : ''}`;
+  renderChart(dates, datasets, title);
+  renderChartRaw(dates, datasetsRaw, title);
+}
+
+function makeChartOptions(yLabel, titleSuffix) {
+  const isMobile = window.innerWidth <= 768;
+  return {
+    responsive:true, maintainAspectRatio:true, aspectRatio: isMobile?1:2,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      title:{ display:true, text:titleSuffix, font:{size:isMobile?12:16}, padding:{top:10,bottom:isMobile?20:10} },
+      legend:{ display:true, position:'bottom', labels:{ boxWidth:isMobile?12:40, font:{size:isMobile?10:12}, padding:isMobile?8:10 } },
+      tooltip:{ enabled:true, itemSort:(a,b)=>b.raw-a.raw, callbacks:{ label: ctx => `${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString('hu-HU',{maximumFractionDigits:2})}` } }
+    },
+    scales:{
+      y:{ title:{display:true,text:yLabel,font:{size:isMobile?10:12}}, ticks:{font:{size:isMobile?9:11}} },
+      x:{ title:{display:!isMobile,text:'Időszak',font:{size:isMobile?10:12}}, ticks:{font:{size:isMobile?9:11},maxRotation:isMobile?45:0,minRotation:isMobile?45:0} }
+    }
+  };
+}
+
+function renderChart(labels, datasets, title) {
+  setDisplay('chartContainer', 'block');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(document.getElementById('chart').getContext('2d'), { type:'line', data:{labels,datasets}, options: makeChartOptions('Változás', title) });
+  const cc = document.getElementById('chartContainer'); if (cc) cc.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function renderChartRaw(labels, datasets, title) {
+  setDisplay('chartContainerRaw', 'block');
+  if (chartInstanceRaw) chartInstanceRaw.destroy();
+  chartInstanceRaw = new Chart(document.getElementById('chartRaw').getContext('2d'), { type:'line', data:{labels,datasets}, options: makeChartOptions('Érték', title) });
+}
+
+/* ---- MEGOSZTÁSI URL ---- */
+
+function generateShareUrl() {
+  if (!selectedDataset || !lastCalculationCountries) return;
+
+  const params = new URLSearchParams();
+
+  // Dataset
+  params.set('ds', selectedDataset.id);
+
+  // Dimenziók
+  datasetDimensions.forEach(dim => {
+    const s = document.getElementById(`dim_${dim.id}`);
+    if (s && s.value) params.set(`d_${dim.id}`, s.value);
+  });
+
+  // Országok (csak a tényleges számításban szereplők)
+  params.set('geo', lastCalculationCountries.join(','));
+
+  // Dátumok
+  params.set('from', document.getElementById('startDate').value.trim());
+  params.set('to', document.getElementById('endDate').value.trim());
+
+  // Számítási módszer
+  params.set('method', document.getElementById('methodRatio').checked ? 'ratio' : 'diff');
+
+  const base = (location.hostname === '127.0.0.1' || location.hostname === 'localhost')
+    ? `${location.origin}${location.pathname}`
+    : 'https://gydeak.github.io/eurostat_relative/';
+  const url = `${base}?${params.toString()}`;
+
+  const sharePanel = document.getElementById('sharePanel');
+  document.getElementById('shareUrl').value = url;
+  sharePanel.style.display = 'block';
+
+  // Görgetés
+  const ss = document.getElementById('shareSection'); if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function copyShareUrl() {
+  const input = document.getElementById('shareUrl');
+  input.select();
+  input.setSelectionRange(0, 99999);
+  const btn = document.getElementById('copyBtn');
+  try {
+    navigator.clipboard.writeText(input.value).then(() => {
+      btn.textContent = '✅ Másolva!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 Másolás'; btn.classList.remove('copied'); }, 2000);
+    });
+  } catch(e) {
+    // Fallback régi böngészőkre
+    document.execCommand('copy');
+    btn.textContent = '✅ Másolva!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Másolás'; btn.classList.remove('copied'); }, 2000);
+  }
+}
+
+/* ---- URL PARAMÉTEREK VISSZATÖLTÉSE ---- */
+
+async function loadFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const ds = params.get('ds');
+  if (!ds) return;
+
+  console.log('URL paraméterekből visszatöltés:', ds);
+
+  // 1. Dataset beállítása közvetlenül (nem kell DOM lista elem)
+  selectedDataset = { id: ds, name: ds };
+
+  // Vizuális visszajelzés: keresőmezőbe írjuk a dataset kódját
+  document.getElementById('datasetSearch').value = ds;
+  // Frissítjük a listát manuálisan (nem event-en keresztül)
+  const filtered = allDataflows.filter(d => (d.id + ' ' + (d.name||'')).toLowerCase().includes(ds.toLowerCase()));
+  renderDataflowList(filtered.length ? filtered : [{ id: ds, name: ds }]);
+  // Kijelöljük az első találatot vizuálisan
+  await new Promise(r => setTimeout(r, 30));
+  const firstItem = document.querySelector('.list-item');
+  if (firstItem) firstItem.classList.add('selected');
+
+  // 2. Dataset dimenziók és dátumok betöltése az API-ból
+  try {
+    await loadDatasetInfo(ds);
+  } catch(e) {
+    console.error('loadDatasetInfo hiba:', e);
+  }
+
+  // 3. Polling: várjuk meg, amíg az összes várt dimenzió select megjelenik a DOM-ban
+  const expectedDims = Array.from(params.keys()).filter(k => k.startsWith('d_'));
+  if (expectedDims.length > 0) {
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 200));
+      const allReady = expectedDims.every(key => document.getElementById('dim_' + key.slice(2)) !== null);
+      if (allReady) { console.log('Dimenziók betöltve, ' + (i+1) + ' próba után'); break; }
+      if (i === 59) console.warn('Timeout: nem töltődtek be a dimenziók:', expectedDims);
+    }
+  }
+
+  // 4. Dimenziók értékeinek visszaállítása
+  params.forEach((val, key) => {
+    if (!key.startsWith('d_')) return;
+    const sel = document.getElementById('dim_' + key.slice(2));
+    if (!sel) return;
+    sel.value = val;
+    if (sel.value !== val) {
+      // Érték nem szerepel az options között — adjuk hozzá manuálisan
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = val;
+      sel.appendChild(opt);
+      sel.value = val;
+    }
+  });
+
+  // 5. Országok visszaállítása
+  const geo = params.get('geo');
+  if (geo) {
+    const sel = document.getElementById('countrySelect');
+    Array.from(sel.options).forEach(o => o.selected = false);
+    geo.split(',').forEach(c => {
+      const opt = Array.from(sel.options).find(o => o.value === c);
+      if (opt) opt.selected = true;
+    });
+  }
+
+  // 6. Dátumok visszaállítása — felülírjuk a loadDatasetInfo által beállított értékeket
+  const from = params.get('from'), to = params.get('to');
+  if (from) document.getElementById('startDate').value = from;
+  if (to) document.getElementById('endDate').value = to;
+
+  // 7. Számítási módszer
+  const method = params.get('method');
+
+  checkFormComplete();
+
+  // 8. Automatikus számítás
+  const btn = document.getElementById('calculateBtn');
+  if (!btn.disabled) {
+    await calculate();
+    // Módszer visszaállítása (a calculate()->setupCalculationMethod alaphelyzetbe állítja)
+    if (method === 'diff') {
       const diff = document.getElementById('methodDifference');
-      methodDiv.style.display = 'block';
-      
-      // Távolítsuk el a régi listenereket
-      ratio.removeEventListener('change', recalculateWithNewMethod);
-      diff.removeEventListener('change', recalculateWithNewMethod);
-      
-      if (hasNegative) {
-        ratio.disabled = true;
-        diff.disabled = false;
-        diff.checked = true;
-      } else {
-        ratio.disabled = false;
-        diff.disabled = false;
-        ratio.checked = true;
-        
-        // Csak akkor adjunk hozzá event listenert, ha mindkét módszer választható
-        ratio.addEventListener('change', recalculateWithNewMethod);
-        diff.addEventListener('change', recalculateWithNewMethod);
-      }
+      if (diff && !diff.disabled) { diff.checked = true; recalculate(); }
     }
-    
-    function recalculateWithNewMethod() {
-      // Ha van eltárolt adat, újraszámoljuk
-      if (lastCalculationData && lastCalculationCountries) {
-        // Mentsük el a jelenlegi kiválasztásokat
-        const sel = document.getElementById('countrySelect');
-        const selectedValues = Array.from(sel.selectedOptions).map(opt => opt.value);
-        
-        console.log('Újraszámolás előtt kiválasztott értékek:', selectedValues);
-        
-        // Újraszámolás
-        processAndDisplay(lastCalculationData, lastCalculationCountries);
-        
-        // Állítsuk vissza a kiválasztásokat
-        setTimeout(() => {
-          selectedValues.forEach(value => {
-            const option = Array.from(sel.options).find(opt => opt.value === value);
-            if (option) {
-              option.selected = true;
-            }
-          });
-          console.log('Kiválasztások visszaállítva');
-        }, 0);
-      }
-    }
+  } else {
+    const errorDiv = document.getElementById('errorMsg');
+    setDisplay('errorMsg', 'block');
+    const errEl = document.getElementById('errorMsg');
+    if (errEl) errEl.textContent = 'A link alapján nem sikerült automatikusan elindítani a számítást. Ellenőrizd a paramétereket, majd futtasd manuálisan.';
+    console.warn('calculateBtn disabled maradt, form állapot:', {
+      selectedDataset, 
+      countries: document.getElementById('countrySelect').selectedOptions.length,
+      start: document.getElementById('startDate').value,
+      end: document.getElementById('endDate').value
+    });
+  }
+}
 
-    /* ---------- ÚJ RELATÍV KONVERGENCIA SZÁMÍTÁS ---------- */
-    function processAndDisplay(data, selectedCountries, startKey) {
-      const dates = Object.keys(data[selectedCountries[0]]).sort();
-      const startYear = dates[0];
+function setDisplay(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = val;
+}
 
-      // Ellenőrizzük, melyik számítási módszert választotta a felhasználó
-      const useRatio = document.getElementById('methodRatio').checked;
-      const useDifference = document.getElementById('methodDifference').checked;
+async function calculate() {
+  setDisplay('errorMsg', 'none');
+  setDisplay('dataAvailabilityPanel', 'none');
+  setDisplay('shareSection', 'none');
+  setDisplay('sharePanel', 'none');
+  const errorDiv = document.getElementById('errorMsg') || { style: {}, textContent: '' };
+  const btn = document.getElementById('calculateBtn');
+  const origText = btn.textContent;
+  btn.textContent = 'Adatok betöltése... ⏳'; btn.disabled = true;
+  try {
+    const countries = Array.from(document.getElementById('countrySelect').selectedOptions).map(o => o.value).filter(c => countryMap[c]);
+    if (!countries.length) throw new Error('Válassz legalább egy országot!');
+    const startDate = document.getElementById('startDate').value.trim();
+    const endDate = document.getElementById('endDate').value.trim();
+    if (!startDate || !endDate) throw new Error('Add meg a dátumtartományt!');
+    const dimValues = {};
+    datasetDimensions.forEach(dim => { const s = document.getElementById(`dim_${dim.id}`); if (s && s.value) dimValues[dim.id] = s.value; });
 
-      // Átlagok minden időpontra
-      const averages = {};
-      dates.forEach(date => {
-        const sum = selectedCountries.reduce((s, c) => s + (data[c][date] || 0), 0);
-        averages[date] = sum / selectedCountries.length;
-      });
+    const data = await loadEurostatData(selectedDataset.id, countries, dimValues, startDate, endDate);
+    if (!Object.keys(data).some(c => Object.keys(data[c]).length > 0))
+      throw new Error('Nem sikerült adatokat betölteni. Ellenőrizd a paramétereket!');
 
-      const startAvg = averages[startYear];
-      
-      // Kezdő értékek (relatív vagy abszolút)
-      const startValues = {};
-      selectedCountries.forEach(c => {
-        const val = data[c][startYear] || 0;
-        if (useRatio) {
-          // Arány-alapú: relatív pozíció az átlaghoz képest
-          startValues[c] = startAvg === 0 ? 0 : val / startAvg;
-        } else {
-          // Különbség-alapú: abszolút különbség az átlagtól
-          startValues[c] = val - startAvg;
-        }
-      });
+    // Adatelérhetőség elemzése
+    const result = analyzeDataAvailability(data, countries);
+    showAvailabilityPanel(result, countries, startDate, endDate);
 
-      const datasets = [];
-      const datasetsRaw = [];
-      const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#7BD389', '#A3A0FB', '#F780A1'];
+    const { commonStart, commonEnd, validCountries } = result;
+    if (!commonStart || !commonEnd) throw new Error('Nincs közös időintervallum! Ellenőrizd az adatelérhetőségi táblázatot.');
+    if (!validCountries.length) throw new Error('Egyetlen ország sem rendelkezik adattal a közös intervallumban.');
 
-      selectedCountries.forEach((country, i) => {
-        const series = [];
-        const seriesRaw = [];
+    const filtered = filterDataToInterval(data, validCountries, commonStart, commonEnd);
+    lastCalculationData = filtered; lastCalculationCountries = validCountries;
+    setupCalculationMethod(checkForNegativeValues(filtered));
+    processAndDisplay(filtered, validCountries);
 
-        dates.forEach(date => {
-          const val = data[country][date] || 0;
-          const avg = averages[date] || 0;
-          
-          let index;
-          if (useRatio) {
-            // Arány-alapú számítás
-            const currentRelative = avg === 0 ? 0 : val / avg;
-            index = currentRelative - startValues[country];
-          } else {
-            // Különbség-alapú számítás
-            const currentDifference = val - avg;
-            index = currentDifference - startValues[country];
-          }
-          
-          series.push(index);
-          seriesRaw.push(val);
-        });
-
-        datasets.push({
-          label: `${country} — ${countryMap[country] || country}`,
-          data: series,
-          borderColor: colors[i % colors.length],
-          backgroundColor: colors[i % colors.length] + '22',
-          tension: 0.1,
-          fill: false
-        });
-
-        datasetsRaw.push({
-          label: `${country} — ${countryMap[country] || country}`,
-          data: seriesRaw,
-          borderColor: colors[i % colors.length],
-          backgroundColor: colors[i % colors.length] + '22',
-          tension: 0.1,
-          fill: false
-        });
-      });
-
-      // Dinamikus dimenziók címhez
-      let dimLabels = [];
-      datasetDimensions.forEach(dim => {
-        const select = document.getElementById(`dim_${dim.id}`);
-        if (select && select.value) {
-          const selectedText = select.selectedOptions[0]?.text || select.value;
-          dimLabels.push(selectedText);
-        }
-      });
-      const titleSuffix = `${selectedDataset ? selectedDataset.name : ''} ${dimLabels.length ? '- ' + dimLabels.join(', ') : ''}`;
-
-      renderChart(Object.keys(data[selectedCountries[0]]), datasets, titleSuffix);
-      renderChartRaw(Object.keys(data[selectedCountries[0]]), datasetsRaw, titleSuffix);
-    }
-
-    function renderChart(labels, datasets, titleSuffix) {
-      document.getElementById('chartContainer').style.display = 'block';
-      const ctx = document.getElementById('chart').getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-
-      // Mobilbarát beállítások
-      const isMobile = window.innerWidth <= 768;
-
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: { labels: labels, datasets: datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          aspectRatio: isMobile ? 1 : 2,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: {
-            title: {
-              display: true,
-              text: titleSuffix,
-              font: { size: isMobile ? 12 : 16 },
-              padding: { top: 10, bottom: isMobile ? 20 : 10 }
-            },
-            legend: {
-              display: true,
-              position: isMobile ? 'bottom' : 'bottom',
-              labels: {
-                boxWidth: isMobile ? 12 : 40,
-                font: { size: isMobile ? 10 : 12 },
-                padding: isMobile ? 8 : 10
-              }
-            },
-            tooltip: {
-              enabled: true,
-              titleFont: { size: isMobile ? 11 : 12 },
-              bodyFont: { size: isMobile ? 10 : 12 },
-              padding: isMobile ? 6 : 10,
-
-              // ← ÚJ: Rendezés érték szerint csökkenő sorrendben
-              itemSort: function (a, b) {
-                return b.raw - a.raw;  // Csökkenő: nagyobb érték felül
-              },
-
-              // ← Opcionális: Formázás az értékekre (pl. ezerelválasztó)
-              callbacks: {
-                label: function (context) {
-                  const formattedValue = Number(context.raw).toLocaleString('hu-HU', {
-                    maximumFractionDigits: 2
-                  });
-                  return `${context.dataset.label}: ${formattedValue}`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              title: {
-                display: true,
-                text: 'Változás',
-                font: { size: isMobile ? 10 : 12 }
-              },
-              ticks: {
-                font: { size: isMobile ? 9 : 11 }
-              }
-            },
-            x: {
-              title: {
-                display: !isMobile,
-                text: 'Időszak',
-                font: { size: isMobile ? 10 : 12 }
-              },
-              ticks: {
-                font: { size: isMobile ? 9 : 11 },
-                maxRotation: isMobile ? 45 : 0,
-                minRotation: isMobile ? 45 : 0
-              }
-            }
-          }
-        }
-      });
-      document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function renderChartRaw(labels, datasets, titleSuffix) {
-      document.getElementById('chartContainerRaw').style.display = 'block';
-      const ctx = document.getElementById('chartRaw').getContext('2d');
-      if (chartInstanceRaw) chartInstanceRaw.destroy();
-
-      // Mobilbarát beállítások
-      const isMobile = window.innerWidth <= 768;
-
-      chartInstanceRaw = new Chart(ctx, {
-        type: 'line',
-        data: { labels: labels, datasets: datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          aspectRatio: isMobile ? 1 : 2,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: {
-            title: {
-              display: true,
-              text: titleSuffix,
-              font: { size: isMobile ? 12 : 16 },
-              padding: { top: 10, bottom: isMobile ? 20 : 10 }
-            },
-            legend: {
-              display: true,
-              position: isMobile ? 'bottom' : 'bottom',
-              labels: {
-                boxWidth: isMobile ? 12 : 40,
-                font: { size: isMobile ? 10 : 12 },
-                padding: isMobile ? 8 : 10
-              }
-            },
-            tooltip: {
-              enabled: true,
-              titleFont: { size: isMobile ? 11 : 12 },
-              bodyFont: { size: isMobile ? 10 : 12 },
-              padding: isMobile ? 6 : 10,
-
-              // ← ÚJ: Rendezés érték szerint csökkenő sorrendben
-              itemSort: function (a, b) {
-                return b.raw - a.raw;  // Csökkenő: nagyobb érték felül
-              },
-
-              // ← Opcionális: Formázás az értékekre (pl. ezerelválasztó)
-              callbacks: {
-                label: function (context) {
-                  const formattedValue = Number(context.raw).toLocaleString('hu-HU', {
-                    maximumFractionDigits: 2
-                  });
-                  return `${context.dataset.label}: ${formattedValue}`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              title: {
-                display: true,
-                text: 'Érték',
-                font: { size: isMobile ? 10 : 12 }
-              },
-              ticks: {
-                font: { size: isMobile ? 9 : 11 }
-              }
-            },
-            x: {
-              title: {
-                display: !isMobile,
-                text: 'Időszak',
-                font: { size: isMobile ? 10 : 12 }
-              },
-              ticks: {
-                font: { size: isMobile ? 9 : 11 },
-                maxRotation: isMobile ? 45 : 0,
-                minRotation: isMobile ? 45 : 0
-              }
-            }
-          }
-        }
-      });
-    }
-
-    /* ---------- CALCULATE BUTTON ---------- */
-    async function calculate() {
-      const errorDiv = document.getElementById('errorMsg');
-      errorDiv.style.display = 'none';
-
-      // Betöltés jelzés
-      const btn = document.getElementById('calculateBtn');
-      const originalText = btn.textContent;
-      btn.textContent = 'Adatok betöltése... ⏳';
-      btn.disabled = true;
-
-      try {
-        const allSelected = Array.from(document.getElementById('countrySelect').selectedOptions).map(o => o.value);
-        
-        // Szűrjük ki az aggregátumokat, csak a tényleges országkódokat hagyjuk meg
-        const countries = allSelected.filter(code => countryMap[code]);
-        
-        if (countries.length === 0) {
-          throw new Error('Válassz ki legalább egy országot!');
-        }
-        
-        const startDate = document.getElementById('startDate').value.trim();
-        const endDate = document.getElementById('endDate').value.trim();
-
-        if (!startDate || !endDate) {
-          throw new Error('Kérlek add meg a kezdő és záró dátumot!');
-        }
-
-        // Gyűjtsük össze a kiválasztott dimenzióértékeket
-        const dimValues = {};
-        datasetDimensions.forEach(dim => {
-          const select = document.getElementById(`dim_${dim.id}`);
-          if (select && select.value) {
-            dimValues[dim.id] = select.value;
-          }
-        });
-
-        console.log('Dimenzióértékek:', dimValues);
-
-        // Valódi adatok betöltése az Eurostat API-ból
-        const data = await loadEurostatData(selectedDataset.id, countries, dimValues, startDate, endDate);
-
-        // Ellenőrizzük, hogy van-e érvényes adat
-        const hasData = Object.keys(data).some(country => Object.keys(data[country]).length > 0);
-        if (!hasData) {
-          throw new Error('Nem sikerült adatokat betölteni. Ellenőrizd a kiválasztott paramétereket és a dátumtartományt.');
-        }
-
-        // Szűrjük ki azokat az országokat, amiknek nincs adata
-        const validCountries = countries.filter(c => data[c] && Object.keys(data[c]).length > 0);
-        if (validCountries.length === 0) {
-          throw new Error('Egyik kiválasztott országhoz sem található adat.');
-        }
-
-        if (validCountries.length < countries.length) {
-          const missingCountries = countries.filter(c => !validCountries.includes(c));
-          console.warn('Ezekhez az országokhoz nem található adat:', missingCountries.join(', '));
-        }
-
-        const hasNegative = checkForNegativeValues(data);
-        
-        // Tároljuk el az adatokat a módszer-váltáshoz
-        lastCalculationData = data;
-        lastCalculationCountries = validCountries;
-        
-        setupCalculationMethod(hasNegative);
-        processAndDisplay(data, validCountries);
-
-      } catch (err) {
-        console.error(err);
-        errorDiv.textContent = err.message || String(err);
-        errorDiv.style.display = 'block';
-      } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }
-    }
-
-  </script>
+    // Megosztás gomb megjelenítése
+    setDisplay('shareSection', 'block');
+  } catch(err) {
+    console.error(err);
+    errorDiv.textContent = err.message||String(err); errorDiv.style.display = 'block';
+  } finally {
+    btn.textContent = origText; btn.disabled = false;
+  }
+}
+</script>
 </body>
-
 </html>
